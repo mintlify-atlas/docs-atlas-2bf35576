@@ -68,8 +68,10 @@
             "pages": [
               "api/core/api-client",
               "api/core/query-client",
+              "api/core/query-state",
               "api/core/logger",
               "api/core/profiler",
+              "api/core/debug",
               "api/core/retry-policy",
               "api/core/response-validator",
               "api/core/request-cache",
@@ -130,7 +132,8 @@
               "api/helpers/pagination-helper",
               "api/helpers/env-manager",
               "api/helpers/color-utils",
-              "api/helpers/signal"
+              "api/helpers/signal",
+              "api/helpers/use-signal"
             ]
           }
         ]

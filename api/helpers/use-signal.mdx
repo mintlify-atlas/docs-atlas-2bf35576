@@ -1,0 +1,315 @@
+---
+title: useSignal (React Hooks)
+description: React hooks for Signal reactive state management
+---
+
+## Overview
+
+useSignal provides React hooks for integrating Signal reactive primitives with React components. These hooks enable fine-grained reactivity in React applications.
+
+<Warning>
+  **React Peer Dependency Required**
+  
+  This module requires React 16.8+ as a peer dependency. Install with:
+  ```bash
+  npm install react
+  ```
+  
+  The module exports are commented out by default and need React to be available in your project.
+</Warning>
+
+## Import
+
+```typescript
+import { 
+  useSignal, 
+  useComputed, 
+  useSignalValue,
+  useSignalEffect 
+} from "bytekit";
+// or
+import { useSignal } from "bytekit/use-signal";
+```
+
+## useSignal
+
+Create a Signal that persists across component renders.
+
+```typescript
+function useSignal<T>(initialValue: T): Signal<T>
+```
+
+### Usage
+
+```tsx
+import { useSignal } from "bytekit";
+
+function Counter() {
+  const count = useSignal(0);
+
+  return (
+    <div>
+      <p>Count: {count.value}</p>
+      <button onClick={() => count.value++}>Increment</button>
+    </div>
+  );
+}
+```
+
+## useComputed
+
+Create a computed Signal that automatically updates when dependencies change.
+
+```typescript
+function useComputed<T>(compute: () => T): Computed<T>
+```
+
+### Usage
+
+```tsx
+import { useSignal, useComputed } from "bytekit";
+
+function TodoStats() {
+  const todos = useSignal<Todo[]>([]);
+  
+  const completedCount = useComputed(() => 
+    todos.value.filter(t => t.completed).length
+  );
+
+  return (
+    <div>
+      <p>Completed: {completedCount.value} / {todos.value.length}</p>
+    </div>
+  );
+}
+```
+
+## useSignalValue
+
+Subscribe to a Signal and trigger re-render when it changes.
+
+```typescript
+function useSignalValue<T>(sig: Signal<T>): T
+```
+
+### Usage
+
+```tsx
+import { signal } from "bytekit";
+import { useSignalValue } from "bytekit/use-signal";
+
+// Global signal outside component
+const theme = signal<"light" | "dark">("light");
+
+function ThemeToggle() {
+  const currentTheme = useSignalValue(theme);
+
+  return (
+    <button onClick={() => theme.value = currentTheme === "light" ? "dark" : "light"}>
+      Current: {currentTheme}
+    </button>
+  );
+}
+```
+
+## useSignalEffect
+
+Run an effect that automatically tracks Signal dependencies.
+
+```typescript
+function useSignalEffect(callback: () => void | (() => void)): void
+```
+
+### Usage
+
+```tsx
+import { useSignal, useSignalEffect } from "bytekit";
+
+function Logger() {
+  const count = useSignal(0);
+
+  useSignalEffect(() => {
+    console.log(`Count changed to ${count.value}`);
+    
+    // Optional cleanup
+    return () => {
+      console.log("Effect cleanup");
+    };
+  });
+
+  return <button onClick={() => count.value++}>Increment</button>;
+}
+```
+
+## useSignalFromProps
+
+Create a Signal that syncs with React props.
+
+```typescript
+function useSignalFromProps<T>(value: T): Signal<T>
+```
+
+### Usage
+
+```tsx
+import { useSignalFromProps } from "bytekit";
+
+function ControlledInput({ value }: { value: string }) {
+  const text = useSignalFromProps(value);
+
+  return (
+    <input 
+      value={text.value} 
+      onChange={e => text.value = e.target.value}
+    />
+  );
+}
+```
+
+## useBatch
+
+Batch multiple Signal updates to trigger only one re-render.
+
+```typescript
+function useBatch(): (callback: () => void) => void
+```
+
+### Usage
+
+```tsx
+import { useSignal, useBatch } from "bytekit";
+
+function MultiUpdate() {
+  const count = useSignal(0);
+  const name = useSignal("John");
+  const batch = useBatch();
+
+  const updateBoth = () => {
+    batch(() => {
+      count.value++;
+      name.value = "Jane";
+      // Only triggers one re-render
+    });
+  };
+
+  return <button onClick={updateBoth}>Update Both</button>;
+}
+```
+
+## Complete Example
+
+```tsx
+import { 
+  useSignal, 
+  useComputed, 
+  useSignalEffect,
+  useBatch 
+} from "bytekit";
+
+interface Todo {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
+function TodoApp() {
+  const todos = useSignal<Todo[]>([]);
+  const filter = useSignal<"all" | "active" | "completed">("all");
+  const batch = useBatch();
+
+  const filteredTodos = useComputed(() => {
+    const list = todos.value;
+    switch (filter.value) {
+      case "active": return list.filter(t => !t.completed);
+      case "completed": return list.filter(t => t.completed);
+      default: return list;
+    }
+  });
+
+  const stats = useComputed(() => ({
+    total: todos.value.length,
+    completed: todos.value.filter(t => t.completed).length,
+    active: todos.value.filter(t => !t.completed).length
+  }));
+
+  useSignalEffect(() => {
+    console.log("Todos changed:", todos.value.length);
+  });
+
+  const addTodo = (text: string) => {
+    todos.value = [...todos.value, {
+      id: Math.random().toString(36),
+      text,
+      completed: false
+    }];
+  };
+
+  const toggleTodo = (id: string) => {
+    todos.value = todos.value.map(t => 
+      t.id === id ? { ...t, completed: !t.completed } : t
+    );
+  };
+
+  const clearCompleted = () => {
+    batch(() => {
+      todos.value = todos.value.filter(t => !t.completed);
+      filter.value = "all";
+    });
+  };
+
+  return (
+    <div>
+      <h1>Todo App</h1>
+      <p>
+        {stats.value.active} active, {stats.value.completed} completed
+      </p>
+      
+      <select 
+        value={filter.value} 
+        onChange={e => filter.value = e.target.value as any}
+      >
+        <option value="all">All</option>
+        <option value="active">Active</option>
+        <option value="completed">Completed</option>
+      </select>
+
+      <ul>
+        {filteredTodos.value.map(todo => (
+          <li key={todo.id}>
+            <input
+              type="checkbox"
+              checked={todo.completed}
+              onChange={() => toggleTodo(todo.id)}
+            />
+            {todo.text}
+          </li>
+        ))}
+      </ul>
+
+      <button onClick={clearCompleted}>Clear Completed</button>
+    </div>
+  );
+}
+```
+
+## Performance Tips
+
+<Tip>
+  **Optimize Renders**
+  
+  - Use `useComputed` for derived values to avoid recalculation
+  - Use `useBatch` when updating multiple Signals at once
+  - Keep Signal updates granular for fine-grained reactivity
+</Tip>
+
+<Note>
+  **React Strict Mode**
+  
+  Signals work correctly with React Strict Mode's double-rendering behavior.
+</Note>
+
+## See Also
+
+- [Signal](/api/helpers/signal)
+- [React Example](/examples/react)
+- [State Management Guide](/guides/state-management)

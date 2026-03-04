@@ -1,0 +1,235 @@
+---
+title: Debug Utilities
+description: Performance measurement and timing utilities for debugging
+---
+
+## Overview
+
+The debug module provides utilities for measuring execution time and performance profiling with stopwatch functionality and timing wrappers.
+
+## Import
+
+```typescript
+import { createStopwatch, withTiming, measureSync, measureAsync } from "bytekit";
+// or
+import { createStopwatch } from "bytekit/debug";
+```
+
+## createStopwatch
+
+Create a stopwatch for measuring operation duration.
+
+<ParamField path="options" type="StopwatchOptions" optional>
+  <Expandable title="properties">
+    <ParamField path="label" type="string" optional default="stopwatch">
+      Label for the stopwatch
+    </ParamField>
+    <ParamField path="logger" type="Logger" optional>
+      Logger instance for automatic logging
+    </ParamField>
+    <ParamField path="precision" type="number" optional default="2">
+      Number of decimal places in logs
+    </ParamField>
+    <ParamField path="autoLog" type="boolean" optional default="false">
+      Auto-log when stopwatch is stopped
+    </ParamField>
+    <ParamField path="namespace" type="string" optional>
+      Namespace for child logger
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Returns
+
+<ResponseField name="Stopwatch" type="object">
+  <Expandable title="methods">
+    <ResponseField name="stop" type="() => number">
+      Stop the stopwatch and return elapsed time in ms
+    </ResponseField>
+    <ResponseField name="elapsed" type="() => number">
+      Get elapsed time without stopping
+    </ResponseField>
+    <ResponseField name="log" type="(context?: Record<string, unknown>) => number">
+      Log elapsed time with optional context
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Usage
+
+```typescript
+import { createStopwatch, createLogger } from "bytekit";
+
+const logger = createLogger({ namespace: "perf" });
+const stopwatch = createStopwatch({
+  label: "database-query",
+  logger,
+  precision: 2,
+  autoLog: true
+});
+
+// Perform operation
+const results = await db.query("SELECT * FROM users");
+
+// Stop and get duration
+const duration = stopwatch.stop();
+console.log(`Query took ${duration}ms`);
+
+// Or log with context
+stopwatch.log({ rowCount: results.length });
+```
+
+## withTiming
+
+Execute a function while measuring its execution time.
+
+```typescript
+withTiming<T>(
+  label: string,
+  fn: () => Promise<T> | T,
+  options?: StopwatchOptions
+): Promise<T>
+```
+
+### Usage
+
+```typescript
+import { withTiming, createLogger } from "bytekit";
+
+const logger = createLogger({ namespace: "api" });
+
+const users = await withTiming(
+  "fetch-users",
+  async () => {
+    return await api.get("/users");
+  },
+  { logger }
+);
+// Logs: "fetch-users took 123.45ms"
+```
+
+## measureSync
+
+Measure a synchronous function's execution time.
+
+```typescript
+measureSync<T>(
+  label: string,
+  fn: () => T,
+  options?: StopwatchOptions
+): T
+```
+
+### Usage
+
+```typescript
+import { measureSync } from "bytekit";
+
+const result = measureSync(
+  "compute",
+  () => {
+    return complexCalculation();
+  },
+  { logger }
+);
+```
+
+## measureAsync
+
+Measure an async function and return both result and duration.
+
+```typescript
+measureAsync<T>(
+  label: string,
+  fn: () => Promise<T> | T,
+  options?: StopwatchOptions
+): Promise<{ result: T; durationMs: number }>
+```
+
+### Usage
+
+```typescript
+import { measureAsync } from "bytekit";
+
+const { result, durationMs } = await measureAsync(
+  "api-call",
+  async () => {
+    return await api.get("/data");
+  },
+  { logger }
+);
+
+console.log(`Operation took ${durationMs}ms`);
+console.log("Result:", result);
+```
+
+## captureDebug
+
+Capture execution time without logging, useful for internal measurements.
+
+```typescript
+captureDebug<T>(
+  fn: () => Promise<T> | T
+): Promise<{ result: T; durationMs: number }>
+```
+
+### Usage
+
+```typescript
+import { captureDebug } from "bytekit";
+
+const { result, durationMs } = await captureDebug(async () => {
+  return await expensiveOperation();
+});
+
+if (durationMs > 1000) {
+  console.warn(`Operation was slow: ${durationMs}ms`);
+}
+```
+
+## Complete Example
+
+```typescript
+import { 
+  createStopwatch, 
+  withTiming, 
+  measureAsync,
+  createLogger 
+} from "bytekit";
+
+const logger = createLogger({ namespace: "performance" });
+
+// Manual stopwatch
+const stopwatch = createStopwatch({
+  label: "batch-process",
+  logger,
+  autoLog: true
+});
+
+for (const item of items) {
+  await processItem(item);
+}
+
+stopwatch.stop();
+// Logs: "batch-process took 1234.56ms"
+
+// Automatic timing wrapper
+const data = await withTiming(
+  "fetch-data",
+  async () => api.get("/data"),
+  { logger }
+);
+
+// Measure with result
+const { result, durationMs } = await measureAsync(
+  "transform",
+  async () => transform(data),
+  { logger }
+);
+```
+
+## See Also
+
+- [Profiler](/api/core/profiler)
+- [Logger](/api/core/logger)
+- [Logging & Profiling Guide](/guides/logging-profiling)

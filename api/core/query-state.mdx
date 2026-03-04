@@ -1,0 +1,276 @@
+---
+title: QueryState
+description: Type definitions and helpers for managing request state
+---
+
+## Overview
+
+QueryState provides TypeScript types and helper functions for managing async request state with QueryClient. It defines request statuses, state interfaces, and factory functions for creating state objects.
+
+## Import
+
+```typescript
+import {
+  RequestState,
+  RequestStatus,
+  RequestContext,
+  createInitialState,
+  createLoadingState,
+  createSuccessState,
+  createErrorState
+} from "bytekit";
+// or
+import { RequestState } from "bytekit/query-state";
+```
+
+## Types
+
+### RequestStatus
+
+Request lifecycle status.
+
+```typescript
+type RequestStatus = "idle" | "loading" | "success" | "error";
+```
+
+### RequestState
+
+Complete state of a request.
+
+<ParamField path="RequestState<T>" type="object">
+  <Expandable title="properties">
+    <ResponseField name="status" type="RequestStatus">
+      Current request status
+    </ResponseField>
+    <ResponseField name="data" type="T" optional>
+      Response data if successful
+    </ResponseField>
+    <ResponseField name="error" type="ApiError" optional>
+      Error if request failed
+    </ResponseField>
+    <ResponseField name="isLoading" type="boolean">
+      True when status is "loading"
+    </ResponseField>
+    <ResponseField name="isSuccess" type="boolean">
+      True when status is "success"
+    </ResponseField>
+    <ResponseField name="isError" type="boolean">
+      True when status is "error"
+    </ResponseField>
+    <ResponseField name="isIdle" type="boolean">
+      True when status is "idle"
+    </ResponseField>
+    <ResponseField name="isFetching" type="boolean">
+      True when actively fetching
+    </ResponseField>
+    <ResponseField name="dataUpdatedAt" type="number">
+      Timestamp when data was last updated
+    </ResponseField>
+    <ResponseField name="errorUpdatedAt" type="number">
+      Timestamp when error was last updated
+    </ResponseField>
+  </Expandable>
+</ParamField>
+
+### RequestContext
+
+Context information for a request.
+
+```typescript
+interface RequestContext {
+  queryKey?: string[];
+  url: string;
+  method: string;
+  timestamp: number;
+  requestId: string;
+}
+```
+
+### RequestLifecycleCallbacks
+
+Callbacks for request lifecycle events.
+
+```typescript
+interface RequestLifecycleCallbacks<T = unknown> {
+  onStart?: (context: RequestContext) => void | Promise<void>;
+  onSuccess?: (data: T, context: RequestContext) => void | Promise<void>;
+  onError?: (error: ApiError, context: RequestContext) => void | Promise<void>;
+  onSettled?: (
+    data: T | undefined,
+    error: ApiError | undefined,
+    context: RequestContext
+  ) => void | Promise<void>;
+}
+```
+
+## State Helpers
+
+### createInitialState
+
+Create initial idle state.
+
+```typescript
+function createInitialState<T = unknown>(): RequestState<T>
+```
+
+**Usage:**
+
+```typescript
+import { createInitialState } from "bytekit";
+
+const state = createInitialState<User>();
+// {
+//   status: "idle",
+//   isLoading: false,
+//   isSuccess: false,
+//   isError: false,
+//   isIdle: true,
+//   isFetching: false,
+//   dataUpdatedAt: 0,
+//   errorUpdatedAt: 0
+// }
+```
+
+### createLoadingState
+
+Create loading state.
+
+```typescript
+function createLoadingState<T = unknown>(previousData?: T): RequestState<T>
+```
+
+**Usage:**
+
+```typescript
+import { createLoadingState } from "bytekit";
+
+const state = createLoadingState(previousData);
+// {
+//   status: "loading",
+//   data: previousData,
+//   isLoading: true,
+//   isFetching: true,
+//   ...
+// }
+```
+
+### createSuccessState
+
+Create success state with data.
+
+```typescript
+function createSuccessState<T = unknown>(data: T): RequestState<T>
+```
+
+**Usage:**
+
+```typescript
+import { createSuccessState } from "bytekit";
+
+const state = createSuccessState({ id: 1, name: "John" });
+// {
+//   status: "success",
+//   data: { id: 1, name: "John" },
+//   isSuccess: true,
+//   dataUpdatedAt: Date.now(),
+//   ...
+// }
+```
+
+### createErrorState
+
+Create error state.
+
+```typescript
+function createErrorState<T = unknown>(
+  error: ApiError,
+  previousData?: T
+): RequestState<T>
+```
+
+**Usage:**
+
+```typescript
+import { createErrorState } from "bytekit";
+
+const state = createErrorState(error, previousData);
+// {
+//   status: "error",
+//   error,
+//   data: previousData,
+//   isError: true,
+//   errorUpdatedAt: Date.now(),
+//   ...
+// }
+```
+
+## Usage with QueryClient
+
+```typescript
+import { 
+  QueryClient, 
+  RequestState, 
+  createInitialState,
+  createLoadingState,
+  createSuccessState,
+  createErrorState 
+} from "bytekit";
+
+class MyQueryManager {
+  private state: RequestState<User> = createInitialState();
+  private queryClient = new QueryClient();
+
+  async fetchUser(id: string) {
+    // Set loading state
+    this.state = createLoadingState(this.state.data);
+    this.notifySubscribers();
+
+    try {
+      const data = await this.queryClient.query(
+        ["user", id],
+        () => api.get(`/users/${id}`)
+      );
+
+      // Set success state
+      this.state = createSuccessState(data);
+      this.notifySubscribers();
+      return data;
+    } catch (error) {
+      // Set error state
+      this.state = createErrorState(error as ApiError, this.state.data);
+      this.notifySubscribers();
+      throw error;
+    }
+  }
+
+  private notifySubscribers() {
+    // Notify UI of state change
+  }
+}
+```
+
+## QueryClientEvents
+
+Event types emitted by QueryClient.
+
+```typescript
+interface QueryClientEvents<T = unknown> {
+  "query:start": { context: RequestContext };
+  "query:success": { data: T; context: RequestContext };
+  "query:error": { error: ApiError; context: RequestContext };
+  "query:settled": {
+    data?: T;
+    error?: ApiError;
+    context: RequestContext;
+  };
+  "state:change": { state: RequestState<T>; context: RequestContext };
+  "cache:invalidate": { queryKey: string[] };
+  "cache:update": { queryKey: string[]; data: T };
+}
+```
+
+## See Also
+
+- [QueryClient](/api/core/query-client)
+- [State Management Guide](/guides/state-management)
+- [ApiClient](/api/core/api-client)
