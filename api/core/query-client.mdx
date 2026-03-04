@@ -1,0 +1,114 @@
+---
+title: QueryClient
+description: Powerful state management for async queries with caching and invalidation
+---
+
+## Overview
+
+The `QueryClient` provides React Query-like functionality for managing async state with automatic caching, refetching, and invalidation. Works in any JavaScript environment.
+
+## Import
+
+```typescript
+import { QueryClient } from "bytekit";
+// or
+import { QueryClient } from "bytekit/query-client";
+```
+
+## Constructor
+
+```typescript
+const queryClient = new QueryClient();
+```
+
+## Methods
+
+### query
+
+Execute a query with automatic caching.
+
+<ParamField path="key" type="string" required>
+  Unique query key
+</ParamField>
+
+<ParamField path="fn" type="() => Promise<T>" required>
+  Async function to execute
+</ParamField>
+
+<ParamField path="options" type="QueryOptions" optional>
+  Query options (staleTime, cacheTime, retry)
+</ParamField>
+
+```typescript
+const data = await queryClient.query("users", async () => {
+  const response = await fetch("/api/users");
+  return response.json();
+});
+```
+
+### invalidate
+
+Invalidate cached queries to trigger refetch.
+
+```typescript
+queryClient.invalidate("users");
+```
+
+### refetch
+
+Manually refetch a query.
+
+```typescript
+await queryClient.refetch("users");
+```
+
+### setQueryData
+
+Manually set query cache data.
+
+```typescript
+queryClient.setQueryData("users", newData);
+```
+
+### getQueryData
+
+Get cached query data.
+
+```typescript
+const cached = queryClient.getQueryData<User[]>("users");
+```
+
+## Usage Example
+
+```typescript
+import { QueryClient } from "bytekit";
+
+const queryClient = new QueryClient();
+
+// Fetch with caching
+const users = await queryClient.query("users", fetchUsers, {
+  staleTime: 60000, // 1 minute
+  cacheTime: 300000 // 5 minutes
+});
+
+// Mutation with cache update
+async function createUser(data: CreateUserInput) {
+  const newUser = await api.post("/users", data);
+  
+  // Invalidate to refetch
+  queryClient.invalidate("users");
+  
+  // Or update cache directly
+  const cached = queryClient.getQueryData<User[]>("users");
+  if (cached) {
+    queryClient.setQueryData("users", [...cached, newUser]);
+  }
+  
+  return newUser;
+}
+```
+
+## See Also
+
+- [State Management Guide](/guides/state-management)
+- [ApiClient](/api/core/api-client)

@@ -1,0 +1,506 @@
+---
+title: 'ApiClient Guide'
+description: 'Complete guide to using ByteKit ApiClient for HTTP requests with retry logic, circuit breakers, and localized errors'
+---
+
+# ApiClient Guide
+
+The `ApiClient` class provides a powerful, type-safe HTTP client with built-in retry logic, circuit breakers, localized error messages, and request/response interceptors.
+
+## Quick Start
+
+```typescript
+import { createApiClient } from 'bytekit';
+
+const client = createApiClient({
+  baseUrl: 'https://api.example.com',
+  defaultHeaders: {
+    'Authorization': 'Bearer token123'
+  },
+  timeoutMs: 15000,
+  locale: 'en'
+});
+
+// Make requests
+const user = await client.get('/users/1');
+const newUser = await client.post('/users', { name: 'John' });
+```
+
+## Configuration Options
+
+### ApiClientConfig
+
+```typescript
+interface ApiClientConfig {
+  // Base URL for all requests (required)
+  baseUrl?: string;
+  baseURL?: string;  // Alias for baseUrl
+  
+  // Default headers applied to all requests
+  defaultHeaders?: HeadersInit;
+  
+  // Custom fetch implementation (defaults to global fetch)
+  fetchImpl?: typeof fetch;
+  
+  // Locale for error messages: "en" | "es"
+  locale?: Locale;
+  
+  // Custom error messages by status code
+  errorMessages?: Partial<Record<Locale, Partial<Record<number, string>>>>;
+  
+  // Default timeout in milliseconds (default: 15000)
+  timeoutMs?: number;
+  
+  // Request/response interceptors
+  interceptors?: ApiClientInterceptors;
+  disableInterceptors?: boolean;
+  
+  // Header logging configuration
+  logHeaders?: boolean;
+  redactHeaderKeys?: string[];  // Headers to redact (default: auth headers)
+  
+  // Logger instance for request/response logging
+  logger?: Logger;
+  
+  // Retry policy configuration
+  retryPolicy?: RetryConfig;
+  
+  // Circuit breaker configuration
+  circuitBreaker?: CircuitBreakerConfig;
+}
+```
+
+### Example Configuration
+
+```typescript
+import { createApiClient, createLogger } from 'bytekit';
+
+const logger = createLogger({ namespace: 'api', level: 'debug' });
+
+const client = createApiClient({
+  baseUrl: 'https://api.example.com',
+  locale: 'en',
+  timeoutMs: 10000,
+  logger,
+  logHeaders: true,
+  redactHeaderKeys: ['authorization', 'x-api-key'],
+  retryPolicy: {
+    maxRetries: 3,
+    initialDelayMs: 1000,
+    maxDelayMs: 5000
+  },
+  circuitBreaker: {
+    threshold: 5,
+    timeout: 60000
+  }
+});
+```
+
+## Making Requests
+
+### GET Requests
+
+```typescript
+// Simple GET request
+const user = await client.get<User>('/users/1');
+
+// GET with query parameters
+const users = await client.get<User[]>('/users', {
+  searchParams: {
+    page: 1,
+    limit: 10,
+    role: 'admin'
+  }
+});
+```
+
+### POST Requests
+
+```typescript
+// Simple POST with body
+const newUser = await client.post<User>('/users', {
+  name: 'John Doe',
+  email: 'john@example.com'
+});
+
+// POST with full options
+const result = await client.post<User>('/users', {
+  body: {
+    name: 'Jane Doe',
+    email: 'jane@example.com'
+  },
+  headers: {
+    'X-Custom-Header': 'value'
+  },
+  timeoutMs: 5000
+});
+```
+
+### PUT and PATCH Requests
+
+```typescript
+// Update entire resource
+const updated = await client.put<User>('/users/1', {
+  name: 'John Updated',
+  email: 'john.updated@example.com'
+});
+
+// Partial update
+const patched = await client.patch<User>('/users/1', {
+  name: 'New Name'
+});
+```
+
+### DELETE Requests
+
+```typescript
+await client.delete('/users/1');
+
+// DELETE with options
+await client.delete('/users/1', {
+  headers: { 'X-Reason': 'User requested deletion' }
+});
+```
+
+## Paginated Lists
+
+The `getList` method provides a structured way to handle paginated API responses:
+
+```typescript
+interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+// Fetch paginated data
+const response = await client.getList<User>('/users', {
+  pagination: { page: 1, limit: 20 },
+  sort: { field: 'createdAt', order: 'desc' },
+  filters: { role: 'admin', status: 'active' }
+});
+
+console.log(response.data);  // User[]
+console.log(response.pagination.hasNextPage);  // boolean
+```
+
+## Request Options
+
+### RequestOptions Interface
+
+```typescript
+interface RequestOptions extends Omit<RequestInit, 'body'> {
+  // Query parameters to append to URL
+  searchParams?: Record<string, QueryParam>;
+  
+  // Request body (auto-serialized to JSON)
+  body?: FormData | string | Blob | ArrayBuffer | Record<string, unknown>;
+  
+  // Override locale for error messages
+  errorLocale?: Locale;
+  
+  // Override timeout for this request
+  timeoutMs?: number;
+  
+  // Validate response against schema
+  validateResponse?: ValidationSchema;
+  
+  // Skip retry policy for this request
+  skipRetry?: boolean;
+  
+  // Skip interceptors for this request
+  skipInterceptors?: boolean;
+  
+  // Override header logging for this request
+  logHeaders?: boolean;
+}
+```
+
+### Advanced Request Options
+
+```typescript
+// Request with validation
+const user = await client.get<User>('/users/1', {
+  validateResponse: {
+    id: { type: 'number', required: true },
+    email: { type: 'string', required: true },
+    name: { type: 'string', required: true }
+  }
+});
+
+// Request with custom timeout
+const data = await client.get('/slow-endpoint', {
+  timeoutMs: 30000  // 30 seconds
+});
+
+// Skip retry for idempotent operations
+const result = await client.post('/webhooks', data, {
+  skipRetry: true
+});
+```
+
+## Error Handling
+
+### ApiError Class
+
+```typescript
+class ApiError extends Error {
+  status: number;
+  statusText: string;
+  body?: unknown;
+  isTimeout: boolean;
+  
+  get details() {
+    return {
+      status: this.status,
+      statusText: this.statusText,
+      message: this.message,
+      body: this.body,
+      isTimeout: this.isTimeout
+    };
+  }
+}
+```
+
+### Handling Errors
+
+```typescript
+import { ApiError } from 'bytekit';
+
+try {
+  const user = await client.get<User>('/users/1');
+} catch (err) {
+  if (err instanceof ApiError) {
+    console.error('Status:', err.status);
+    console.error('Message:', err.message);
+    console.error('Body:', err.body);
+    console.error('Details:', err.details);
+    
+    // Handle specific errors
+    if (err.status === 404) {
+      console.log('User not found');
+    } else if (err.isTimeout) {
+      console.log('Request timed out');
+    } else if (err.status === 401) {
+      // Redirect to login
+    }
+  }
+}
+```
+
+### Localized Error Messages
+
+ByteKit provides built-in error messages in English and Spanish:
+
+```typescript
+const client = createApiClient({
+  baseUrl: 'https://api.example.com',
+  locale: 'es',  // Spanish error messages
+  errorMessages: {
+    es: {
+      400: 'Solicitud inválida personalizada',
+      // Custom message overrides
+    },
+    en: {
+      400: 'Custom invalid request message'
+    }
+  }
+});
+
+// Override locale per request
+try {
+  await client.get('/endpoint', { errorLocale: 'en' });
+} catch (err) {
+  // Error message will be in English
+}
+```
+
+**Default Error Messages:**
+
+| Status | English | Spanish |
+|--------|---------|--------|
+| 400 | Invalid request. Please check your data. | La solicitud es inválida. Verifica los datos enviados. |
+| 401 | You must be signed in to continue. | Necesitas iniciar sesión para continuar. |
+| 403 | You don't have permission for this action. | No tienes permisos para realizar esta acción. |
+| 404 | Resource not found. | El recurso solicitado no fue encontrado. |
+| 500 | Internal server error. | Ocurrió un error interno en el servidor. |
+
+## Retry Policy
+
+Automatically retry failed requests with exponential backoff:
+
+```typescript
+const client = createApiClient({
+  baseUrl: 'https://api.example.com',
+  retryPolicy: {
+    maxRetries: 3,
+    initialDelayMs: 1000,    // Start with 1 second
+    maxDelayMs: 10000,       // Max 10 seconds between retries
+    shouldRetry: (error, attempt) => {
+      // Retry on network errors and 5xx errors
+      if (error instanceof ApiError) {
+        return error.status >= 500 || error.isTimeout;
+      }
+      return true;
+    }
+  }
+});
+
+// This will retry up to 3 times if it fails
+const data = await client.get('/unstable-endpoint');
+
+// Disable retry for specific request
+const result = await client.post('/webhook', data, {
+  skipRetry: true
+});
+```
+
+## Circuit Breaker
+
+Prevent cascading failures with circuit breaker pattern:
+
+```typescript
+const client = createApiClient({
+  baseUrl: 'https://api.example.com',
+  circuitBreaker: {
+    threshold: 5,        // Open circuit after 5 failures
+    timeout: 60000,      // Keep circuit open for 60 seconds
+    resetTimeout: 30000  // Try to close after 30 seconds
+  }
+});
+
+// Circuit will open after 5 consecutive failures
+// and reject requests immediately for 60 seconds
+```
+
+## Interceptors
+
+Intercept and modify requests/responses:
+
+```typescript
+const client = createApiClient({
+  baseUrl: 'https://api.example.com',
+  interceptors: {
+    // Modify request before sending
+    request: async (url, init) => {
+      // Add authentication token
+      const token = await getAuthToken();
+      const headers = new Headers(init.headers);
+      headers.set('Authorization', `Bearer ${token}`);
+      
+      return [url, { ...init, headers }];
+    },
+    
+    // Modify response after receiving
+    response: async (response) => {
+      // Log response time
+      const timing = response.headers.get('X-Response-Time');
+      console.log('Response time:', timing);
+      
+      // Refresh token if expired
+      if (response.status === 401) {
+        await refreshAuthToken();
+      }
+      
+      return response;
+    }
+  }
+});
+```
+
+## Logging
+
+Integrate with ByteKit Logger for request/response logging:
+
+```typescript
+import { createApiClient, createLogger } from 'bytekit';
+
+const logger = createLogger({
+  namespace: 'api',
+  level: 'debug'
+});
+
+const client = createApiClient({
+  baseUrl: 'https://api.example.com',
+  logger,
+  logHeaders: true,
+  redactHeaderKeys: ['authorization', 'cookie', 'x-api-key']
+});
+
+// Logs will include:
+// - HTTP method and URL
+// - Request headers (with sensitive values redacted)
+// - Response status and data
+// - Error details
+```
+
+## Best Practices
+
+### 1. Use TypeScript for Type Safety
+
+```typescript
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+const user = await client.get<User>('/users/1');
+// TypeScript knows user.name exists
+```
+
+### 2. Create Client Instances per API
+
+```typescript
+// Authentication API
+const authClient = createApiClient({
+  baseUrl: 'https://auth.example.com'
+});
+
+// Data API
+const dataClient = createApiClient({
+  baseUrl: 'https://api.example.com',
+  defaultHeaders: { 'Authorization': `Bearer ${token}` }
+});
+```
+
+### 3. Handle Errors Gracefully
+
+```typescript
+try {
+  const data = await client.get('/endpoint');
+  return data;
+} catch (err) {
+  if (err instanceof ApiError) {
+    // Show user-friendly message
+    toast.error(err.message);
+    
+    // Log for debugging
+    logger.error('API request failed', err.details);
+  }
+  throw err;
+}
+```
+
+### 4. Use Request Options for One-off Configurations
+
+```typescript
+// Don't create new clients for one-off changes
+// Instead, use request options
+const data = await client.get('/endpoint', {
+  timeoutMs: 30000,
+  headers: { 'X-Special': 'value' }
+});
+```
+
+## Related
+
+- [QueryClient State Management](/guides/state-management)
+- [Logging and Profiling](/guides/logging-profiling)
+- [Best Practices](/guides/best-practices)

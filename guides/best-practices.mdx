@@ -1,0 +1,601 @@
+---
+title: 'Best Practices'
+description: 'Best practices for error handling, performance optimization, tree-shaking, and testing with ByteKit'
+---
+
+# Best Practices
+
+Follow these best practices to get the most out of ByteKit while maintaining clean, performant, and maintainable code.
+
+## Error Handling
+
+### 1. Always Catch Errors
+
+Never let API errors bubble up unhandled:
+
+```typescript
+import { ApiError } from 'bytekit';
+
+// Good: Handle errors explicitly
+try {
+  const user = await client.get<User>('/users/1');
+  return user;
+} catch (err) {
+  if (err instanceof ApiError) {
+    // Handle API errors
+    if (err.status === 404) {
+      return null;  // User not found
+    } else if (err.status === 401) {
+      redirectToLogin();
+    } else {
+      showErrorToast(err.message);
+    }
+  }
+  // Re-throw unknown errors
+  throw err;
+}
+
+// Bad: Let errors propagate
+const user = await client.get<User>('/users/1');
+```
+
+### 2. Provide User-Friendly Messages
+
+Don't show raw error messages to users:
+
+```typescript
+// Good: User-friendly messages
+try {
+  await client.post('/users', userData);
+  toast.success('User created successfully!');
+} catch (err) {
+  if (err instanceof ApiError) {
+    if (err.status === 400) {
+      toast.error('Please check your input and try again.');
+    } else if (err.status === 409) {
+      toast.error('A user with this email already exists.');
+    } else {
+      toast.error('Failed to create user. Please try again.');
+    }
+  }
+}
+
+// Bad: Raw error messages
+try {
+  await client.post('/users', userData);
+} catch (err) {
+  alert(err.message);  // "Request failed with status 400"
+}
+```
+
+### 3. Log Errors for Debugging
+
+Always log errors with context:
+
+```typescript
+import { createLogger, ApiError } from 'bytekit';
+
+const logger = createLogger({ namespace: 'app' });
+
+try {
+  const result = await client.post('/orders', orderData);
+} catch (err) {
+  if (err instanceof ApiError) {
+    // Log full error details
+    logger.error('Order creation failed', {
+      status: err.status,
+      statusText: err.statusText,
+      body: err.body,
+      orderData
+    }, err);
+    
+    // Show user-friendly message
+    toast.error('Failed to create order');
+  }
+}
+```
+
+### 4. Handle Network Errors
+
+Distinguish between different error types:
+
+```typescript
+try {
+  const data = await client.get('/data');
+} catch (err) {
+  if (err instanceof ApiError) {
+    if (err.isTimeout) {
+      toast.error('Request timed out. Please check your connection.');
+    } else if (err.status >= 500) {
+      toast.error('Server error. Please try again later.');
+    } else if (err.status === 401) {
+      toast.error('Please sign in to continue.');
+      redirectToLogin();
+    } else {
+      toast.error(err.message);
+    }
+  } else {
+    // Network error or other unexpected error
+    toast.error('Network error. Please check your connection.');
+  }
+}
+```
+
+## Performance Optimization
+
+### 1. Use Appropriate Cache Times
+
+Set cache times based on data volatility:
+
+```typescript
+const queryClient = createQueryClient(apiClient, {
+  defaultStaleTime: 0,
+  defaultCacheTime: 300000  // 5 minutes
+});
+
+// Frequently changing: short stale time
+const livePrice = await queryClient.query({
+  queryKey: ['price', symbol],
+  path: `/stocks/${symbol}/price`,
+  staleTime: 5000  // 5 seconds
+});
+
+// Rarely changing: long stale time
+const config = await queryClient.query({
+  queryKey: ['config'],
+  path: '/config',
+  staleTime: 3600000  // 1 hour
+});
+
+// Static data: infinite stale time
+const countries = await queryClient.query({
+  queryKey: ['countries'],
+  path: '/countries',
+  staleTime: Infinity
+});
+```
+
+### 2. Enable Request Deduplication
+
+Prevent duplicate requests:
+
+```typescript
+const queryClient = createQueryClient(apiClient, {
+  enableDeduplication: true
+});
+
+// These will only make ONE request
+const [result1, result2, result3] = await Promise.all([
+  queryClient.query({ queryKey: ['data'], path: '/data' }),
+  queryClient.query({ queryKey: ['data'], path: '/data' }),
+  queryClient.query({ queryKey: ['data'], path: '/data' })
+]);
+```
+
+### 3. Use Circuit Breakers
+
+Prevent cascading failures:
+
+```typescript
+const client = createApiClient({
+  baseUrl: 'https://api.example.com',
+  circuitBreaker: {
+    threshold: 5,        // Open after 5 failures
+    timeout: 60000,      // Stay open for 60s
+    resetTimeout: 30000  // Try to close after 30s
+  }
+});
+```
+
+### 4. Set Appropriate Timeouts
+
+Don't let requests hang indefinitely:
+
+```typescript
+// Short timeout for health checks
+const health = await client.get('/health', {
+  timeoutMs: 5000
+});
+
+// Longer timeout for file uploads
+const upload = await client.post('/upload', formData, {
+  timeoutMs: 60000  // 1 minute
+});
+```
+
+### 5. Batch Requests When Possible
+
+```typescript
+// Good: Single request for multiple items
+const users = await client.get('/users', {
+  searchParams: { ids: [1, 2, 3, 4, 5] }
+});
+
+// Bad: Multiple requests
+const users = await Promise.all([
+  client.get('/users/1'),
+  client.get('/users/2'),
+  client.get('/users/3'),
+  client.get('/users/4'),
+  client.get('/users/5')
+]);
+```
+
+## Tree-Shaking
+
+ByteKit is designed for optimal tree-shaking. Follow these practices to minimize bundle size:
+
+### 1. Import Only What You Need
+
+```typescript
+// Good: Named imports
+import { createApiClient, createLogger } from 'bytekit';
+
+// Bad: Import everything
+import * as ByteKit from 'bytekit';
+const client = ByteKit.createApiClient(...);
+```
+
+### 2. Use Specific Import Paths
+
+For even better tree-shaking, import from specific paths:
+
+```typescript
+// Even better: Direct path imports
+import { createApiClient } from 'bytekit/core';
+import { createLogger } from 'bytekit/core';
+import { StringUtils } from 'bytekit/helpers';
+```
+
+### 3. Avoid Importing Unused Utilities
+
+```typescript
+// Good: Only import what you use
+import { createApiClient } from 'bytekit';
+
+// Bad: Import unused utilities
+import {
+  createApiClient,
+  createLogger,      // Not used
+  Profiler,          // Not used
+  StringUtils,       // Not used
+  DateUtils          // Not used
+} from 'bytekit';
+```
+
+### 4. Check Bundle Size
+
+Use bundle analyzers to verify tree-shaking:
+
+```bash
+# Webpack Bundle Analyzer
+npm install --save-dev webpack-bundle-analyzer
+
+# Rollup Plugin Visualizer
+npm install --save-dev rollup-plugin-visualizer
+
+# Vite Bundle Analyzer
+npm install --save-dev rollup-plugin-visualizer
+```
+
+## Testing
+
+### 1. Mock API Client in Tests
+
+```typescript
+import { vi, describe, it, expect } from 'vitest';
+import type { ApiClient } from 'bytekit';
+
+// Create mock client
+const mockClient = {
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn()
+} as unknown as ApiClient;
+
+// Test
+describe('UserService', () => {
+  it('should fetch user', async () => {
+    mockClient.get.mockResolvedValue({
+      id: 1,
+      name: 'John'
+    });
+
+    const service = new UserService(mockClient);
+    const user = await service.getUser('1');
+
+    expect(mockClient.get).toHaveBeenCalledWith('/users/1');
+    expect(user.name).toBe('John');
+  });
+});
+```
+
+### 2. Test Error Handling
+
+```typescript
+import { ApiError } from 'bytekit';
+
+it('should handle 404 errors', async () => {
+  mockClient.get.mockRejectedValue(
+    new ApiError(404, 'Not Found', 'User not found')
+  );
+
+  const service = new UserService(mockClient);
+  const user = await service.getUser('999');
+
+  expect(user).toBeNull();
+});
+```
+
+### 3. Use MSW for Integration Tests
+
+```typescript
+import { setupServer } from 'msw/node';
+import { rest } from 'msw';
+import { createApiClient } from 'bytekit';
+
+const server = setupServer(
+  rest.get('https://api.example.com/users/:id', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        id: req.params.id,
+        name: 'John Doe'
+      })
+    );
+  })
+);
+
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+it('should fetch user from API', async () => {
+  const client = createApiClient({
+    baseUrl: 'https://api.example.com'
+  });
+
+  const user = await client.get('/users/1');
+  expect(user.name).toBe('John Doe');
+});
+```
+
+### 4. Test Retry Logic
+
+```typescript
+it('should retry on failure', async () => {
+  let attempts = 0;
+  
+  const server = setupServer(
+    rest.get('https://api.example.com/data', (req, res, ctx) => {
+      attempts++;
+      if (attempts < 3) {
+        return res(ctx.status(500));
+      }
+      return res(ctx.json({ success: true }));
+    })
+  );
+
+  const client = createApiClient({
+    baseUrl: 'https://api.example.com',
+    retryPolicy: { maxRetries: 3 }
+  });
+
+  const result = await client.get('/data');
+  
+  expect(attempts).toBe(3);
+  expect(result.success).toBe(true);
+});
+```
+
+## Code Organization
+
+### 1. Create Dedicated API Services
+
+```typescript
+// services/UserService.ts
+import type { ApiClient } from 'bytekit';
+
+export class UserService {
+  constructor(private client: ApiClient) {}
+
+  async getUser(id: string) {
+    return this.client.get<User>(`/users/${id}`);
+  }
+
+  async updateUser(id: string, data: Partial<User>) {
+    return this.client.put<User>(`/users/${id}`, data);
+  }
+
+  async deleteUser(id: string) {
+    return this.client.delete(`/users/${id}`);
+  }
+}
+
+// Usage
+const userService = new UserService(apiClient);
+const user = await userService.getUser('1');
+```
+
+### 2. Define TypeScript Interfaces
+
+```typescript
+// types/api.ts
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: 'admin' | 'user';
+  createdAt: string;
+}
+
+export interface Post {
+  id: number;
+  title: string;
+  content: string;
+  authorId: number;
+  author?: User;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+```
+
+### 3. Use Environment Variables
+
+```typescript
+// lib/api.ts
+import { createApiClient } from 'bytekit';
+
+export const apiClient = createApiClient({
+  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
+  defaultHeaders: {
+    'Authorization': `Bearer ${process.env.API_TOKEN}`
+  },
+  timeoutMs: Number(process.env.API_TIMEOUT) || 15000
+});
+```
+
+### 4. Centralize Configuration
+
+```typescript
+// config/api.ts
+import { createApiClient, createLogger } from 'bytekit';
+
+const logger = createLogger({
+  namespace: 'api',
+  level: process.env.NODE_ENV === 'production' ? 'error' : 'debug'
+});
+
+export const apiClient = createApiClient({
+  baseUrl: process.env.API_URL,
+  logger,
+  retryPolicy: {
+    maxRetries: 3,
+    initialDelayMs: 1000
+  },
+  circuitBreaker: {
+    threshold: 5,
+    timeout: 60000
+  }
+});
+```
+
+## Security
+
+### 1. Never Log Sensitive Data
+
+```typescript
+// Good: Redact sensitive data
+logger.info('User login', {
+  userId: user.id,
+  email: user.email
+  // Don't log: password, tokens, credit cards
+});
+
+// Bad: Logging everything
+logger.info('User login', user);  // May contain password
+```
+
+### 2. Use HTTPS in Production
+
+```typescript
+const client = createApiClient({
+  baseUrl: process.env.NODE_ENV === 'production'
+    ? 'https://api.example.com'
+    : 'http://localhost:3000'
+});
+```
+
+### 3. Validate API Responses
+
+```typescript
+const user = await client.get<User>('/users/1', {
+  validateResponse: {
+    id: { type: 'number', required: true },
+    email: { type: 'string', required: true },
+    role: { type: 'string', required: true }
+  }
+});
+```
+
+### 4. Set Appropriate CORS Headers
+
+```typescript
+const client = createApiClient({
+  baseUrl: 'https://api.example.com',
+  defaultHeaders: {
+    'Origin': window.location.origin
+  }
+});
+```
+
+## Monitoring
+
+### 1. Track API Performance
+
+```typescript
+import { Profiler, createLogger } from 'bytekit';
+
+const logger = createLogger({ namespace: 'perf' });
+const profiler = new Profiler('api');
+
+profiler.start('fetch-user');
+const user = await client.get('/users/1');
+profiler.end('fetch-user');
+
+const timings = profiler.summary();
+if (timings['fetch-user'] > 1000) {
+  logger.warn('Slow API response', { timings });
+}
+```
+
+### 2. Monitor Error Rates
+
+```typescript
+const queryClient = createQueryClient(apiClient, {
+  globalCallbacks: {
+    onError: (error, context) => {
+      // Send to error tracking service
+      Sentry.captureException(error, {
+        tags: {
+          url: context.url,
+          method: context.method
+        }
+      });
+    }
+  }
+});
+```
+
+### 3. Use Structured Logging
+
+```typescript
+const logger = createLogger({
+  namespace: 'api',
+  transports: [
+    async (entry) => {
+      // Send to logging service
+      await fetch('https://logs.example.com/ingest', {
+        method: 'POST',
+        body: JSON.stringify({
+          level: entry.level,
+          message: entry.message,
+          context: entry.context,
+          timestamp: entry.timestamp
+        })
+      });
+    }
+  ]
+});
+```
+
+## Related
+
+- [ApiClient Guide](/guides/api-client)
+- [State Management](/guides/state-management)
+- [Logging and Profiling](/guides/logging-profiling)

@@ -1,0 +1,158 @@
+---
+title: ApiClient
+description: Isomorphic HTTP client with retries, circuit breaker, and localized errors
+---
+
+## Overview
+
+The `ApiClient` class is a powerful, isomorphic HTTP client that works in both Node.js and browsers. It provides automatic retries, circuit breaker patterns, localized error messages, request/response interceptors, and comprehensive logging.
+
+## Import
+
+```typescript
+import { ApiClient } from "bytekit";
+// or
+import { ApiClient } from "bytekit/api-client";
+```
+
+## Constructor
+
+<ParamField path="config" type="ApiClientConfig" optional>
+  Configuration object for the API client
+  
+  <Expandable title="properties">
+    <ParamField path="baseUrl" type="string" optional>
+      Base URL for all requests
+    </ParamField>
+    <ParamField path="defaultHeaders" type="HeadersInit" optional>
+      Default headers for all requests
+    </ParamField>
+    <ParamField path="locale" type="'en' | 'es'" optional default="en">
+      Locale for error messages
+    </ParamField>
+    <ParamField path="timeoutMs" type="number" optional default="30000">
+      Default timeout in milliseconds
+    </ParamField>
+    <ParamField path="retryPolicy" type="RetryConfig" optional>
+      Retry configuration (maxAttempts, initialDelayMs, maxDelayMs, backoffMultiplier)
+    </ParamField>
+    <ParamField path="circuitBreaker" type="CircuitBreakerConfig" optional>
+      Circuit breaker configuration
+    </ParamField>
+    <ParamField path="interceptors" type="ApiClientInterceptors" optional>
+      Request/response interceptors
+    </ParamField>
+    <ParamField path="logger" type="Logger" optional>
+      Logger instance for request logging
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Methods
+
+### get
+
+Make a GET request.
+
+```typescript
+get<T>(endpoint: string, options?: RequestOptions): Promise<T>
+```
+
+### post
+
+Make a POST request.
+
+```typescript
+post<T>(endpoint: string, body?: unknown, options?: RequestOptions): Promise<T>
+```
+
+### put
+
+Make a PUT request.
+
+```typescript
+put<T>(endpoint: string, body?: unknown, options?: RequestOptions): Promise<T>
+```
+
+### patch
+
+Make a PATCH request.
+
+```typescript
+patch<T>(endpoint: string, body?: unknown, options?: RequestOptions): Promise<T>
+```
+
+### delete
+
+Make a DELETE request.
+
+```typescript
+delete<T>(endpoint: string, options?: RequestOptions): Promise<T>
+```
+
+### list
+
+Make a paginated list request with filters and sorting.
+
+```typescript
+list<T, TFilter>(endpoint: string, options?: ListOptions<TFilter>): Promise<PaginatedResponse<T>>
+```
+
+## Usage Example
+
+```typescript
+import { ApiClient } from "bytekit";
+
+const api = new ApiClient({
+  baseUrl: "https://api.example.com",
+  defaultHeaders: {
+    "X-API-Key": process.env.API_KEY
+  },
+  locale: "en",
+  retryPolicy: {
+    maxAttempts: 3,
+    initialDelayMs: 100
+  },
+  circuitBreaker: {
+    failureThreshold: 5,
+    resetTimeoutMs: 60000
+  }
+});
+
+// GET request
+const users = await api.get<User[]>("/users");
+
+// POST request
+const newUser = await api.post<User>("/users", {
+  name: "John Doe",
+  email: "john@example.com"
+});
+
+// Paginated list with filters
+const result = await api.list<User, { status: string }>("/users", {
+  pagination: { page: 1, limit: 20 },
+  sort: { field: "createdAt", order: "desc" },
+  filters: { status: "active" }
+});
+```
+
+## Error Handling
+
+```typescript
+import { ApiError } from "bytekit";
+
+try {
+  const data = await api.get("/users");
+} catch (error) {
+  if (error instanceof ApiError) {
+    console.error(`HTTP ${error.status}: ${error.message}`);
+    console.error(error.body);
+  }
+}
+```
+
+## See Also
+
+- [RetryPolicy](/api/core/retry-policy)
+- [Logger](/api/core/logger)
+- [ResponseValidator](/api/core/response-validator)

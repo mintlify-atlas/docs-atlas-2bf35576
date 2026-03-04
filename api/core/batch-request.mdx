@@ -1,0 +1,42 @@
+---
+title: BatchRequest
+description: Batch multiple requests for efficient API calls
+---
+
+## Overview
+
+BatchRequest allows you to batch multiple API requests into a single HTTP call.
+
+## Import
+
+```typescript
+import { BatchRequest } from "bytekit";
+// or
+import { BatchRequest } from "bytekit/batch-request";
+```
+
+## Usage
+
+```typescript
+const batch = new BatchRequest(api);
+
+batch.add("/users/1");
+batch.add("/users/2");
+batch.add("/users/3");
+
+const results = await batch.execute();
+// Returns array of responses
+```
+
+## Configuration
+
+```typescript
+const batch = new BatchRequest(api, {
+  maxBatchSize: 10,
+  batchDelayMs: 100
+});
+```
+
+## See Also
+
+- [ApiClient](/api/core/api-client)

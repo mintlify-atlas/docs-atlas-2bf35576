@@ -1,0 +1,122 @@
+---
+title: Profiler
+description: Performance measurement utilities for tracking execution time
+---
+
+## Overview
+
+The Profiler class provides utilities for measuring execution time and performance profiling.
+
+## Import
+
+```typescript
+import { Profiler, withTiming } from "bytekit";
+// or
+import { Profiler } from "bytekit/profiler";
+```
+
+## Profiler Class
+
+### start
+
+Start a new timer.
+
+```typescript
+const profiler = new Profiler();
+profiler.start("operation-name");
+```
+
+### end
+
+End a timer and return elapsed time.
+
+```typescript
+const elapsed = profiler.end("operation-name");
+console.log(`Operation took ${elapsed}ms`);
+```
+
+### measure
+
+Measure a synchronous operation.
+
+```typescript
+const result = profiler.measure("operation", () => {
+  // Your code here
+  return computeResult();
+});
+```
+
+### measureAsync
+
+Measure an async operation.
+
+```typescript
+const result = await profiler.measureAsync("fetch-users", async () => {
+  return await api.get("/users");
+});
+```
+
+## withTiming Helper
+
+Wrap a function to automatically log execution time.
+
+```typescript
+import { withTiming } from "bytekit";
+
+const fetchUsers = withTiming(async () => {
+  return await api.get("/users");
+}, "fetch-users");
+
+const users = await fetchUsers();
+// Logs: "fetch-users completed in 123ms"
+```
+
+## Usage Example
+
+```typescript
+import { Profiler, createLogger } from "bytekit";
+
+const profiler = new Profiler();
+const logger = createLogger({ namespace: "perf" });
+
+// Manual timing
+profiler.start("db-query");
+const users = await db.users.findMany();
+const elapsed = profiler.end("db-query");
+logger.info(`Query took ${elapsed}ms`);
+
+// Automatic timing
+const result = await profiler.measureAsync("api-call", async () => {
+  return await api.get("/data");
+});
+```
+
+## Integration with ApiClient
+
+```typescript
+import { ApiClient, createLogger, Profiler } from "bytekit";
+
+const profiler = new Profiler();
+const logger = createLogger({ namespace: "api" });
+
+const api = new ApiClient({
+  baseUrl: "https://api.example.com",
+  logger,
+  interceptors: {
+    request: (url, init) => {
+      profiler.start(url);
+      return [url, init];
+    },
+    response: (response) => {
+      const elapsed = profiler.end(response.url);
+      logger.info(`Request completed in ${elapsed}ms`, { url: response.url });
+      return response;
+    }
+  }
+});
+```
+
+## See Also
+
+- [Logging & Profiling Guide](/guides/logging-profiling)
+- [Logger](/api/core/logger)

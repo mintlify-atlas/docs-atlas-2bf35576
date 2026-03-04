@@ -1,0 +1,364 @@
+---
+title: 'REST API Integration'
+description: 'Complete examples of REST API integration using ByteKit ApiClient'
+---
+
+# REST API Integration
+
+Learn how to build a complete REST API client with ByteKit's `ApiClient`. This guide covers setup, CRUD operations, interceptors, and error handling.
+
+## Basic Setup
+
+First, create an API client instance with your base configuration:
+
+```typescript
+import { ApiClient } from '@bytekit/core';
+
+const apiClient = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  defaultHeaders: {
+    'Content-Type': 'application/json',
+  },
+  timeoutMs: 15000,
+  locale: 'en',
+});
+```
+
+## CRUD Operations
+
+### Creating Resources (POST)
+
+```typescript
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+}
+
+// Simple POST with body
+const createUser = async (userData: Omit<User, 'id' | 'createdAt'>) => {
+  try {
+    const user = await apiClient.post<User>('/users', userData);
+    console.log('User created:', user);
+    return user;
+  } catch (error) {
+    console.error('Failed to create user:', error);
+    throw error;
+  }
+};
+
+// Usage
+await createUser({
+  name: 'John Doe',
+  email: 'john@example.com',
+});
+```
+
+### Reading Resources (GET)
+
+```typescript
+// Get a single resource
+const getUser = async (userId: string) => {
+  const user = await apiClient.get<User>(`/users/${userId}`);
+  return user;
+};
+
+// Get with query parameters
+const searchUsers = async (query: string, limit: number = 10) => {
+  const users = await apiClient.get<User[]>('/users/search', {
+    searchParams: {
+      q: query,
+      limit,
+      sort: 'name',
+      order: 'asc',
+    },
+  });
+  return users;
+};
+```
+
+### Updating Resources (PUT & PATCH)
+
+```typescript
+// Full update with PUT
+const updateUser = async (userId: string, userData: Omit<User, 'id' | 'createdAt'>) => {
+  const user = await apiClient.put<User>(`/users/${userId}`, userData);
+  return user;
+};
+
+// Partial update with PATCH
+const patchUser = async (userId: string, updates: Partial<User>) => {
+  const user = await apiClient.patch<User>(`/users/${userId}`, updates);
+  return user;
+};
+
+// Usage
+await patchUser('user-123', { name: 'Jane Doe' });
+```
+
+### Deleting Resources (DELETE)
+
+```typescript
+const deleteUser = async (userId: string) => {
+  await apiClient.delete(`/users/${userId}`);
+  console.log('User deleted successfully');
+};
+```
+
+## Paginated List Requests
+
+ByteKit provides built-in support for paginated API responses:
+
+```typescript
+import { PaginatedResponse } from '@bytekit/core';
+
+interface UserFilters {
+  role?: 'admin' | 'user' | 'guest';
+  status?: 'active' | 'inactive';
+  search?: string;
+}
+
+const getUsers = async (page: number = 1, limit: number = 20) => {
+  const response = await apiClient.getList<User, UserFilters>('/users', {
+    pagination: { page, limit },
+    sort: { field: 'createdAt', order: 'desc' },
+    filters: {
+      status: 'active',
+      role: 'user',
+    },
+  });
+
+  console.log(`Page ${response.pagination.page} of ${response.pagination.totalPages}`);
+  console.log(`Total users: ${response.pagination.total}`);
+  console.log('Users:', response.data);
+
+  return response;
+};
+```
+
+## Request & Response Interceptors
+
+Interceptors allow you to modify requests before they're sent and responses before they're processed.
+
+### Request Interceptor Example
+
+```typescript
+const apiClient = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  interceptors: {
+    // Add authentication token to all requests
+    request: async (url, init) => {
+      const token = await getAuthToken();
+      
+      const headers = new Headers(init.headers);
+      headers.set('Authorization', `Bearer ${token}`);
+      
+      // Add request ID for tracing
+      headers.set('X-Request-ID', crypto.randomUUID());
+      
+      return [
+        url,
+        {
+          ...init,
+          headers: Object.fromEntries(headers.entries()),
+        },
+      ];
+    },
+  },
+});
+```
+
+### Response Interceptor Example
+
+```typescript
+const apiClient = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  interceptors: {
+    // Transform all responses
+    response: async (response) => {
+      // Log response time
+      const responseTime = response.headers.get('X-Response-Time');
+      if (responseTime) {
+        console.log(`API response time: ${responseTime}ms`);
+      }
+
+      // Handle rate limiting
+      const rateLimitRemaining = response.headers.get('X-RateLimit-Remaining');
+      if (rateLimitRemaining && parseInt(rateLimitRemaining) < 10) {
+        console.warn('Rate limit nearly exceeded!');
+      }
+
+      return response;
+    },
+  },
+});
+```
+
+### Combined Interceptors
+
+```typescript
+const apiClient = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  interceptors: {
+    request: async (url, init) => {
+      // Add auth token
+      const token = localStorage.getItem('auth_token');
+      const headers = new Headers(init.headers);
+      
+      if (token) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+      
+      // Add timestamp
+      headers.set('X-Request-Time', new Date().toISOString());
+      
+      return [url, { ...init, headers: Object.fromEntries(headers.entries()) }];
+    },
+    response: async (response) => {
+      // Check for updated token in response
+      const newToken = response.headers.get('X-New-Token');
+      if (newToken) {
+        localStorage.setItem('auth_token', newToken);
+      }
+      
+      return response;
+    },
+  },
+});
+```
+
+## Advanced Request Options
+
+### Custom Headers per Request
+
+```typescript
+const uploadData = async (data: unknown) => {
+  const result = await apiClient.post('/data', {
+    body: data,
+    headers: {
+      'X-Custom-Header': 'special-value',
+      'X-Request-Priority': 'high',
+    },
+  });
+  return result;
+};
+```
+
+### Request Timeout Override
+
+```typescript
+// Override default timeout for a long-running operation
+const processLargeFile = async (fileData: FormData) => {
+  const result = await apiClient.post('/process', {
+    body: fileData,
+    timeoutMs: 60000, // 60 seconds
+  });
+  return result;
+};
+```
+
+### Skip Interceptors
+
+```typescript
+// Skip interceptors for specific requests
+const publicEndpoint = async () => {
+  const data = await apiClient.get('/public/data', {
+    skipInterceptors: true,
+  });
+  return data;
+};
+```
+
+## Complete Example: User Management Service
+
+Here's a complete example combining all concepts:
+
+```typescript
+import { ApiClient, ApiError } from '@bytekit/core';
+
+class UserService {
+  private client: ApiClient;
+
+  constructor(baseUrl: string) {
+    this.client = new ApiClient({
+      baseUrl,
+      defaultHeaders: {
+        'Content-Type': 'application/json',
+      },
+      timeoutMs: 15000,
+      interceptors: {
+        request: async (url, init) => {
+          const token = localStorage.getItem('token');
+          const headers = new Headers(init.headers);
+          
+          if (token) {
+            headers.set('Authorization', `Bearer ${token}`);
+          }
+          
+          return [url, { ...init, headers: Object.fromEntries(headers.entries()) }];
+        },
+        response: async (response) => {
+          const newToken = response.headers.get('X-Refresh-Token');
+          if (newToken) {
+            localStorage.setItem('token', newToken);
+          }
+          return response;
+        },
+      },
+    });
+  }
+
+  async listUsers(page: number = 1, filters?: Partial<UserFilters>) {
+    return this.client.getList<User, UserFilters>('/users', {
+      pagination: { page, limit: 20 },
+      sort: { field: 'createdAt', order: 'desc' },
+      filters,
+    });
+  }
+
+  async getUser(id: string) {
+    return this.client.get<User>(`/users/${id}`);
+  }
+
+  async createUser(data: Omit<User, 'id' | 'createdAt'>) {
+    return this.client.post<User>('/users', data);
+  }
+
+  async updateUser(id: string, data: Partial<User>) {
+    return this.client.patch<User>(`/users/${id}`, data);
+  }
+
+  async deleteUser(id: string) {
+    await this.client.delete(`/users/${id}`);
+  }
+
+  async searchUsers(query: string) {
+    return this.client.get<User[]>('/users/search', {
+      searchParams: { q: query },
+    });
+  }
+}
+
+// Usage
+const userService = new UserService('https://api.example.com');
+
+// Create a user
+const newUser = await userService.createUser({
+  name: 'Alice Johnson',
+  email: 'alice@example.com',
+});
+
+// List users with filtering
+const users = await userService.listUsers(1, { status: 'active' });
+
+// Search users
+const searchResults = await userService.searchUsers('alice');
+```
+
+## See Also
+
+- [Authentication](/examples/authentication) - Token-based auth patterns
+- [Error Handling](/examples/error-handling) - Error handling strategies
+- [Caching Strategies](/examples/caching-strategies) - Cache management
+- [API Client Reference](/api-reference/api-client) - Complete API documentation

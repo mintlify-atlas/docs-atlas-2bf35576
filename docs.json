@@ -1,122 +1,164 @@
 {
   "$schema": "https://mintlify.com/docs.json",
+  "name": "ByteKit",
   "theme": "mint",
-  "name": "Mint Starter Kit",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#cb0404",
+    "light": "#f3d2d2",
+    "dark": "#e37b84"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/sebamar88/bytekit"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/sebamar88/bytekit",
+      "x": "https://x.com/sebamar88"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/architecture",
+              "concepts/tree-shaking",
+              "concepts/isomorphic"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Guides",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "guides/api-client",
+              "guides/state-management",
+              "guides/logging-profiling",
+              "guides/framework-integration",
+              "guides/best-practices"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "CLI Tool",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "cli/overview",
+              "cli/type-generation",
+              "cli/swagger-integration"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Core Modules",
             "pages": [
-              "api-reference/introduction"
+              "api/core/api-client",
+              "api/core/query-client",
+              "api/core/logger",
+              "api/core/profiler",
+              "api/core/retry-policy",
+              "api/core/response-validator",
+              "api/core/request-cache",
+              "api/core/rate-limiter",
+              "api/core/request-deduplicator",
+              "api/core/error-boundary",
+              "api/core/batch-request"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "String & Date Utilities",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/helpers/string-utils",
+              "api/helpers/date-utils",
+              "api/helpers/time-utils"
+            ]
+          },
+          {
+            "group": "Data Structures",
+            "pages": [
+              "api/helpers/array-utils",
+              "api/helpers/object-utils",
+              "api/helpers/number-utils"
+            ]
+          },
+          {
+            "group": "Web & Network",
+            "pages": [
+              "api/helpers/http-status",
+              "api/helpers/url-builder",
+              "api/helpers/file-upload",
+              "api/helpers/streaming",
+              "api/helpers/websocket",
+              "api/helpers/form-utils"
+            ]
+          },
+          {
+            "group": "Storage & Cache",
+            "pages": [
+              "api/helpers/storage-utils",
+              "api/helpers/cache-manager"
+            ]
+          },
+          {
+            "group": "Security & Validation",
+            "pages": [
+              "api/helpers/validator",
+              "api/helpers/crypto-utils",
+              "api/helpers/compression-utils"
+            ]
+          },
+          {
+            "group": "Advanced Utilities",
+            "pages": [
+              "api/helpers/event-emitter",
+              "api/helpers/diff-utils",
+              "api/helpers/polling-helper",
+              "api/helpers/pagination-helper",
+              "api/helpers/env-manager",
+              "api/helpers/color-utils",
+              "api/helpers/signal"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Examples",
+        "groups": [
+          {
+            "group": "Framework Examples",
+            "pages": [
+              "examples/react",
+              "examples/vue",
+              "examples/svelte",
+              "examples/next-js"
+            ]
+          },
+          {
+            "group": "Use Cases",
+            "pages": [
+              "examples/rest-api-integration",
+              "examples/authentication",
+              "examples/error-handling",
+              "examples/caching-strategies",
+              "examples/real-time-data"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

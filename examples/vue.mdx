@@ -1,0 +1,425 @@
+---
+title: "Vue Integration"
+description: "Learn how to integrate ByteKit with Vue 3 applications using Composition API and composables"
+---
+
+## Overview
+
+ByteKit works seamlessly with Vue 3's Composition API. This guide shows you how to build reactive, type-safe API integrations using Vue composables.
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install bytekit
+```
+
+```bash yarn
+yarn add bytekit
+```
+
+```bash pnpm
+pnpm add bytekit
+```
+</CodeGroup>
+
+## Basic Setup
+
+### Create Composables
+
+Create reusable composables for API interactions:
+
+```ts
+// composables/useApi.ts
+import { ref, onMounted, onUnmounted, Ref } from "vue";
+import { createApiClient } from "bytekit";
+
+export function useApiClient(config: Parameters<typeof createApiClient>[0]) {
+    const client = createApiClient(config);
+    return client;
+}
+
+export function useApiQuery<T>(
+    client: ReturnType<typeof createApiClient>,
+    url: string
+) {
+    const data: Ref<T | null> = ref(null);
+    const loading = ref(true);
+    const error: Ref<string | null> = ref(null);
+    let cancelled = false;
+
+    async function fetchData() {
+        try {
+            loading.value = true;
+            const response = await client.get(url);
+            if (!cancelled) {
+                data.value = response as T;
+                error.value = null;
+            }
+        } catch (err) {
+            if (!cancelled) {
+                error.value =
+                    err instanceof Error ? err.message : "Unknown error";
+            }
+        } finally {
+            if (!cancelled) {
+                loading.value = false;
+            }
+        }
+    }
+
+    onMounted(() => {
+        fetchData();
+    });
+
+    onUnmounted(() => {
+        cancelled = true;
+    });
+
+    return { data, loading, error, refetch: fetchData };
+}
+```
+
+## Complete Example
+
+```vue
+<template>
+    <div class="container">
+        <h1>ByteKit + Vue</h1>
+
+        <div class="example">
+            <h2>API Client Example</h2>
+
+            <p v-if="loading">Loading...</p>
+            <p v-if="error" class="error">Error: {{ error }}</p>
+            <pre v-if="data" class="result">{{
+                JSON.stringify(data, null, 2)
+            }}</pre>
+        </div>
+
+        <div class="features">
+            <p>✅ Vue Composition API</p>
+            <p>✅ Custom composables</p>
+            <p>✅ TypeScript ready</p>
+        </div>
+    </div>
+</template>
+
+<script setup lang="ts">
+import { useApiClient, useApiQuery } from "./composables/useApi";
+
+interface User {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    website: string;
+}
+
+const client = useApiClient({
+    baseUrl: "https://api.example.com",
+    timeoutMs: 5000,
+    retryPolicy: { maxRetries: 3 },
+});
+
+const { data, loading, error } = useApiQuery<User>(client, "/users/1");
+</script>
+
+<style scoped>
+.container {
+    padding: 2rem;
+    font-family: system-ui;
+}
+
+.example {
+    margin-top: 2rem;
+}
+
+.error {
+    color: red;
+}
+
+.result {
+    background: #f5f5f5;
+    padding: 1rem;
+    border-radius: 8px;
+    overflow: auto;
+}
+
+.features {
+    margin-top: 2rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+</style>
+```
+
+## Using QueryClient
+
+Integrate ByteKit's `QueryClient` for advanced caching:
+
+```ts
+// composables/useQueryClient.ts
+import { ref, onMounted, onUnmounted } from "vue";
+import { createApiClient, createQueryClient } from "bytekit";
+
+const apiClient = createApiClient({
+    baseUrl: "https://api.example.com",
+});
+
+const queryClient = createQueryClient(apiClient, {
+    defaultStaleTime: 5000,
+    defaultCacheTime: 60000,
+});
+
+export function useQuery<T>(queryKey: string[], path: string) {
+    const data = ref<T | null>(null);
+    const loading = ref(true);
+    const error = ref<Error | null>(null);
+    let cancelled = false;
+
+    async function fetch() {
+        try {
+            loading.value = true;
+            const result = await queryClient.query({ queryKey, path });
+            if (!cancelled) {
+                data.value = result as T;
+                error.value = null;
+            }
+        } catch (err) {
+            if (!cancelled) {
+                error.value = err as Error;
+            }
+        } finally {
+            if (!cancelled) {
+                loading.value = false;
+            }
+        }
+    }
+
+    onMounted(() => {
+        fetch();
+    });
+
+    onUnmounted(() => {
+        cancelled = true;
+    });
+
+    return { data, loading, error, refetch: fetch };
+}
+```
+
+### Usage with QueryClient
+
+```vue
+<template>
+    <div>
+        <h2 v-if="loading">Loading...</h2>
+        <div v-else-if="error">Error: {{ error.message }}</div>
+        <div v-else-if="data">
+            <h2>{{ data.name }}</h2>
+            <p>{{ data.email }}</p>
+            <button @click="refetch">Refresh</button>
+        </div>
+    </div>
+</template>
+
+<script setup lang="ts">
+import { useQuery } from "./composables/useQueryClient";
+
+interface User {
+    id: number;
+    name: string;
+    email: string;
+}
+
+const props = defineProps<{ userId: string }>();
+
+const { data, loading, error, refetch } = useQuery<User>(
+    ["user", props.userId],
+    `/users/${props.userId}`
+);
+</script>
+```
+
+## State Management Patterns
+
+### Global API Client with Provide/Inject
+
+```ts
+// main.ts
+import { createApp } from "vue";
+import { createApiClient } from "bytekit";
+import App from "./App.vue";
+
+const apiClient = createApiClient({
+    baseUrl: "https://api.example.com",
+    timeoutMs: 5000,
+    retryPolicy: { maxRetries: 3 },
+});
+
+const app = createApp(App);
+app.provide("apiClient", apiClient);
+app.mount("#app");
+```
+
+```ts
+// In components
+import { inject } from "vue";
+import type { ApiClient } from "bytekit";
+
+export function useApi() {
+    const client = inject<ReturnType<typeof createApiClient>>("apiClient");
+    if (!client) {
+        throw new Error("API client not provided");
+    }
+    return client;
+}
+```
+
+### Mutations Composable
+
+```ts
+// composables/useMutation.ts
+import { ref } from "vue";
+import type { ApiClient } from "bytekit";
+
+export function useMutation<T, V>(
+    client: ReturnType<typeof createApiClient>
+) {
+    const loading = ref(false);
+    const error = ref<string | null>(null);
+    const data = ref<T | null>(null);
+
+    const mutate = async (url: string, body: V, method = "POST") => {
+        loading.value = true;
+        error.value = null;
+
+        try {
+            const response = await client.request({
+                url,
+                method,
+                body,
+            });
+            data.value = response as T;
+            return response as T;
+        } catch (err) {
+            error.value = err instanceof Error ? err.message : "Unknown error";
+            throw err;
+        } finally {
+            loading.value = false;
+        }
+    };
+
+    return { mutate, loading, error, data };
+}
+```
+
+### Usage Example
+
+```vue
+<template>
+    <form @submit.prevent="handleSubmit">
+        <input v-model="formData.name" placeholder="Name" />
+        <input v-model="formData.email" placeholder="Email" />
+        
+        <p v-if="error" class="error">{{ error }}</p>
+        
+        <button :disabled="loading">
+            {{ loading ? "Creating..." : "Create User" }}
+        </button>
+    </form>
+</template>
+
+<script setup lang="ts">
+import { reactive } from "vue";
+import { useApi } from "./composables/useApi";
+import { useMutation } from "./composables/useMutation";
+
+interface User {
+    id: number;
+    name: string;
+    email: string;
+}
+
+const client = useApi();
+const { mutate, loading, error } = useMutation<User, Partial<User>>(client);
+
+const formData = reactive({
+    name: "",
+    email: "",
+});
+
+const handleSubmit = async () => {
+    try {
+        const newUser = await mutate("/users", formData);
+        console.log("Created:", newUser);
+        // Reset form
+        formData.name = "";
+        formData.email = "";
+    } catch (err) {
+        // Error is already in state
+    }
+};
+</script>
+```
+
+## Best Practices
+
+<AccordionGroup>
+<Accordion title="1. Use Composition API">
+Prefer Composition API over Options API for better type inference and code organization:
+
+```vue
+<script setup lang="ts">
+// Better type safety and less boilerplate
+import { useApiQuery } from "./composables/useApi";
+</script>
+```
+</Accordion>
+
+<Accordion title="2. Reactive References">
+Use `ref()` for primitive values and `reactive()` for objects:
+
+```ts
+const loading = ref(true); // for booleans
+const formData = reactive({ name: "", email: "" }); // for objects
+```
+</Accordion>
+
+<Accordion title="3. Cleanup with onUnmounted">
+Always cleanup in `onUnmounted` to prevent memory leaks:
+
+```ts
+onUnmounted(() => {
+    cancelled = true;
+});
+```
+</Accordion>
+
+<Accordion title="4. Type Safety">
+Use TypeScript generics for type-safe responses:
+
+```ts
+const { data } = useApiQuery<User>(client, "/users/1");
+// data is typed as Ref<User | null>
+```
+</Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="API Client Guide" icon="plug" href="/guides/api-client">
+  Learn more about ApiClient configuration
+</Card>
+<Card title="State Management" icon="database" href="/guides/state-management">
+  Explore QueryClient for advanced caching
+</Card>
+<Card title="TypeScript Support" icon="code" href="/cli/type-generation">
+  Generate types from OpenAPI specs
+</Card>
+<Card title="Error Handling" icon="triangle-exclamation" href="/examples/error-handling">
+  Best practices for error handling
+</Card>
+</CardGroup>

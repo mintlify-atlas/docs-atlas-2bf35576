@@ -1,0 +1,33 @@
+---
+title: RequestDeduplicator
+description: Prevent duplicate concurrent requests
+---
+
+## Overview
+
+RequestDeduplicator ensures that identical concurrent requests are only executed once.
+
+## Import
+
+```typescript
+import { RequestDeduplicator } from "bytekit";
+// or
+import { RequestDeduplicator } from "bytekit/request-deduplicator";
+```
+
+## Usage
+
+```typescript
+const deduplicator = new RequestDeduplicator();
+
+const result = await deduplicator.execute("/users", async () => {
+  return await api.get("/users");
+});
+
+// Concurrent calls with same key will share the same request
+```
+
+## See Also
+
+- [ApiClient](/api/core/api-client)
+- [QueryClient](/api/core/query-client)

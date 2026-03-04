@@ -1,0 +1,413 @@
+---
+title: Tree-Shaking & Bundle Size
+description: Optimize your bundle size with ByteKit's modular ESM architecture
+---
+
+## What is Tree-Shaking?
+
+Tree-shaking is a build optimization technique that eliminates unused code from your final bundle. ByteKit is designed from the ground up to maximize tree-shaking effectiveness.
+
+<Note>
+  ByteKit's ESM-only design and granular exports ensure that you only bundle what you actually use.
+</Note>
+
+## ESM-Only Design
+
+ByteKit is published as pure ES modules (ESM), which enables optimal tree-shaking:
+
+```json package.json
+{
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./api-client": {
+      "types": "./dist/utils/core/ApiClient.d.ts",
+      "import": "./dist/utils/core/ApiClient.js"
+    }
+    // ... 40+ individual exports
+  }
+}
+```
+
+### Key Features for Tree-Shaking
+
+1. **`"type": "module"`** - Pure ESM package
+2. **`"sideEffects": false`** - No side effects on import
+3. **Granular exports** - 40+ individual entry points
+4. **TypeScript paths** - Full type safety with modular imports
+
+## Import Strategies
+
+### Strategy 1: Full Library Import (Not Recommended)
+
+```typescript
+// ❌ Imports the entire library
+import { ApiClient, StringUtils, DateUtils } from 'bytekit';
+
+// Bundle size: ~50-100 KB (entire library)
+```
+
+While this works, you'll bundle the entire library even if you only use a few utilities.
+
+### Strategy 2: Modular Imports (Recommended)
+
+```typescript
+// ✅ Imports only what you need
+import { ApiClient } from 'bytekit/api-client';
+import { StringUtils } from 'bytekit/string-utils';
+import { DateUtils } from 'bytekit/date-utils';
+
+// Bundle size: ~15-20 KB (only imported modules + dependencies)
+```
+
+This is the recommended approach for optimal bundle size.
+
+### Strategy 3: Mixed Imports
+
+```typescript
+// Core functionality from main export
+import { ApiClient } from 'bytekit';
+
+// Specific utilities from modular exports
+import { slugify } from 'bytekit/string-utils';
+import { chunk } from 'bytekit/array-utils';
+```
+
+## Available Module Exports
+
+ByteKit provides 40+ individual exports for granular imports:
+
+### Core Modules
+
+```typescript
+import { ApiClient } from 'bytekit/api-client';
+import { RetryPolicy } from 'bytekit/retry-policy';
+import { ResponseValidator } from 'bytekit/response-validator';
+import { Logger } from 'bytekit/logger';
+import { Profiler } from 'bytekit/profiler';
+import { debug } from 'bytekit/debug';
+import { RequestCache } from 'bytekit/request-cache';
+import { RateLimiter } from 'bytekit/rate-limiter';
+import { RequestDeduplicator } from 'bytekit/request-deduplicator';
+import { ErrorBoundary } from 'bytekit/error-boundary';
+import { BatchRequest } from 'bytekit/batch-request';
+import { QueryClient } from 'bytekit/query-client';
+import { QueryState } from 'bytekit/query-state';
+```
+
+### Helper Modules
+
+```typescript
+import { ArrayUtils } from 'bytekit/array-utils';
+import { StringUtils } from 'bytekit/string-utils';
+import { DateUtils } from 'bytekit/date-utils';
+import { NumberUtils } from 'bytekit/number-utils';
+import { ObjectUtils } from 'bytekit/object-utils';
+import { TimeUtils } from 'bytekit/time-utils';
+import { ColorUtils } from 'bytekit/color-utils';
+import { Validator } from 'bytekit/validator';
+import { EnvManager } from 'bytekit/env-manager';
+import { StorageUtils } from 'bytekit/storage-utils';
+import { CacheManager } from 'bytekit/cache-manager';
+import { CompressionUtils } from 'bytekit/compression-utils';
+import { CryptoUtils } from 'bytekit/crypto-utils';
+import { DiffUtils } from 'bytekit/diff-utils';
+import { EventEmitter } from 'bytekit/event-emitter';
+import { FormUtils } from 'bytekit/form-utils';
+import { HttpStatusHelper } from 'bytekit/http-status';
+import { UrlBuilder } from 'bytekit/url-builder';
+import { PaginationHelper } from 'bytekit/pagination-helper';
+import { PollingHelper } from 'bytekit/polling-helper';
+import { FileUploadHelper } from 'bytekit/file-upload';
+import { StreamingHelper } from 'bytekit/streaming';
+import { WebSocketHelper } from 'bytekit/websocket';
+import { Signal } from 'bytekit/signal';
+import { useSignal } from 'bytekit/use-signal';
+```
+
+## Bundle Size Comparison
+
+Here's a real-world comparison of bundle sizes:
+
+<Tabs>
+  <Tab title="Full Import">
+    ```typescript
+    import { ApiClient, Logger, StringUtils } from 'bytekit';
+    
+    const client = new ApiClient({ baseUrl: 'https://api.example.com' });
+    const slug = StringUtils.slugify('Hello World');
+    ```
+    
+    **Bundle size**: ~50-100 KB (minified + gzipped)
+  </Tab>
+  
+  <Tab title="Modular Import">
+    ```typescript
+    import { ApiClient } from 'bytekit/api-client';
+    import { Logger } from 'bytekit/logger';
+    import { StringUtils } from 'bytekit/string-utils';
+    
+    const client = new ApiClient({ baseUrl: 'https://api.example.com' });
+    const slug = StringUtils.slugify('Hello World');
+    ```
+    
+    **Bundle size**: ~15-20 KB (minified + gzipped)
+    
+    **Savings**: ~60-80% smaller bundle
+  </Tab>
+  
+  <Tab title="Minimal Import">
+    ```typescript
+    import { ApiClient } from 'bytekit/api-client';
+    
+    const client = new ApiClient({ baseUrl: 'https://api.example.com' });
+    ```
+    
+    **Bundle size**: ~12-15 KB (minified + gzipped)
+    
+    **Savings**: ~75-85% smaller bundle
+  </Tab>
+</Tabs>
+
+## Build Tool Configuration
+
+### Vite
+
+Vite supports ESM and tree-shaking out of the box:
+
+```typescript vite.config.ts
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  build: {
+    // Tree-shaking is enabled by default
+    minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Optional: separate ByteKit into its own chunk
+          'bytekit': ['bytekit/api-client', 'bytekit/logger']
+        }
+      }
+    }
+  }
+});
+```
+
+### Webpack
+
+```javascript webpack.config.js
+module.exports = {
+  mode: 'production',
+  optimization: {
+    usedExports: true,  // Enable tree-shaking
+    sideEffects: true,  // Respect package.json sideEffects
+    minimize: true
+  },
+  resolve: {
+    // Ensure .js extensions are resolved
+    extensions: ['.js', '.ts', '.tsx']
+  }
+};
+```
+
+### esbuild
+
+```javascript esbuild.config.js
+require('esbuild').build({
+  entryPoints: ['src/index.ts'],
+  bundle: true,
+  minify: true,
+  treeShaking: true,  // Enable tree-shaking
+  format: 'esm',
+  outfile: 'dist/index.js'
+});
+```
+
+### Rollup
+
+```javascript rollup.config.js
+import { terser } from 'rollup-plugin-terser';
+
+export default {
+  input: 'src/index.ts',
+  output: {
+    file: 'dist/index.js',
+    format: 'esm'
+  },
+  plugins: [
+    terser({
+      compress: {
+        pure_getters: true,
+        unsafe: true
+      }
+    })
+  ],
+  treeshake: {
+ n    moduleSideEffects: false  // Enable aggressive tree-shaking
+  }
+};
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Use Modular Imports">
+    Always prefer modular imports over full library imports:
+    
+    ```typescript
+    // ✅ Good
+    import { ApiClient } from 'bytekit/api-client';
+    
+    // ❌ Avoid
+    import { ApiClient } from 'bytekit';
+    ```
+  </Step>
+  
+  <Step title="Import Only What You Need">
+    Don't import entire utilities if you only need specific functions:
+    
+    ```typescript
+    // If StringUtils has many methods but you only need slugify,
+    // the tree-shaker will still remove unused methods
+    import { StringUtils } from 'bytekit/string-utils';
+    const slug = StringUtils.slugify('test');
+    ```
+  </Step>
+  
+  <Step title="Use Code Splitting">
+    Split large modules into separate chunks:
+    
+    ```typescript
+    // Dynamic import for heavy modules
+    const { QueryClient } = await import('bytekit/query-client');
+    ```
+  </Step>
+  
+  <Step title="Analyze Your Bundle">
+    Use bundle analyzers to verify tree-shaking:
+    
+    ```bash
+    # Vite
+    npx vite-bundle-visualizer
+    
+    # Webpack
+    npx webpack-bundle-analyzer dist/stats.json
+    ```
+  </Step>
+</Steps>
+
+## Real-World Example
+
+Here's a complete example of an optimized application:
+
+```typescript app.ts
+// Only import what's needed
+import { ApiClient } from 'bytekit/api-client';
+import { Logger } from 'bytekit/logger';
+import { StringUtils } from 'bytekit/string-utils';
+
+// Setup
+const logger = new Logger({ level: 'info' });
+const client = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  logger,
+  retryPolicy: { maxAttempts: 3 }
+});
+
+// Usage
+async function fetchUser(username: string) {
+  const slug = StringUtils.slugify(username);
+  return client.get(`/users/${slug}`);
+}
+
+// Result: Tiny bundle with only ApiClient, Logger, StringUtils, and dependencies
+// Total size: ~15-18 KB (minified + gzipped)
+```
+
+## Verifying Tree-Shaking
+
+To verify that tree-shaking is working:
+
+```bash
+# Build your project
+npm run build
+
+# Analyze bundle size
+ls -lh dist/
+
+# Check what's included (search for ByteKit modules)
+grep -r "bytekit" dist/
+
+# Use a bundle analyzer
+npx vite-bundle-visualizer
+```
+
+<Check>
+  If done correctly, you should only see the modules you explicitly imported in your bundle.
+</Check>
+
+## TypeScript Configuration
+
+Ensure your `tsconfig.json` supports ESM:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM"],
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  }
+}
+```
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Tree-shaking not working">
+    **Problem**: Bundle includes unused modules
+    
+    **Solutions**:
+    - Ensure you're using modular imports (`bytekit/api-client` not `bytekit`)
+    - Check that `"sideEffects": false` is respected by your bundler
+    - Use production mode (`NODE_ENV=production`)
+    - Verify your bundler supports ESM tree-shaking
+  </Accordion>
+  
+  <Accordion title="Large bundle size">
+    **Problem**: Bundle is larger than expected
+    
+    **Solutions**:
+    - Switch from full imports to modular imports
+    - Use dynamic imports for heavy modules
+    - Enable minification in your build tool
+    - Analyze bundle with `webpack-bundle-analyzer` or `vite-bundle-visualizer`
+  </Accordion>
+  
+  <Accordion title="Module resolution errors">
+    **Problem**: Cannot resolve module paths
+    
+    **Solutions**:
+    - Update to Node.js 18+ (required for ESM support)
+    - Check your bundler's module resolution settings
+    - Ensure TypeScript `moduleResolution` is set to `"bundler"` or `"node16"`
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture Overview" icon="sitemap" href="/concepts/architecture">
+    Learn about ByteKit's modular architecture
+  </Card>
+  <Card title="Isomorphic Design" icon="globe" href="/concepts/isomorphic">
+    Understand how ByteKit works everywhere
+  </Card>
+</CardGroup>

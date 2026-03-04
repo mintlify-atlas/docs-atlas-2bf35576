@@ -1,0 +1,192 @@
+---
+title: 'CLI Overview'
+description: 'Command-line interface for API inspection and type generation'
+---
+
+The ByteKit CLI provides powerful tools for inspecting APIs and generating TypeScript types directly from your terminal.
+
+## Installation
+
+Install ByteKit globally to use the CLI:
+
+```bash
+npm install -g bytekit
+```
+
+Or use it directly with npx:
+
+```bash
+npx bytekit --help
+```
+
+## Available Commands
+
+The CLI supports three main modes of operation:
+
+### 1. Simple API Fetching
+
+Fetch and display API responses without any type generation:
+
+```bash
+bytekit https://api.example.com/users
+```
+
+**Output:**
+```
+📡 Fetching GET https://api.example.com/users...
+[
+  {
+    "id": 1,
+    "name": "John Doe",
+    "email": "john@example.com"
+  }
+]
+```
+
+### 2. Type Generation
+
+Generate TypeScript types from a single API endpoint:
+
+```bash
+bytekit --type https://api.example.com/users
+```
+
+See [Type Generation](/cli/type-generation) for detailed usage.
+
+### 3. Swagger/OpenAPI Integration
+
+Generate all TypeScript DTOs from a Swagger specification:
+
+```bash
+bytekit --swagger https://api.example.com/swagger.json
+```
+
+See [Swagger Integration](/cli/swagger-integration) for detailed usage.
+
+## Command-Line Options
+
+| Option | Description | Default |
+|--------|-------------|--------|
+| `--type` | Generate TypeScript types from API response | Saves to `src/types/{endpoint}.ts` |
+| `--swagger` | Generate all TypeScript DTOs from Swagger/OpenAPI spec | Saves to `src/types/api-docs.ts` |
+| `--method=<METHOD>` | HTTP method (GET, POST, PUT, DELETE, PATCH) | `GET` |
+| `--body=<json>` | JSON body for the request | None |
+| `--header=<key:val>` | Custom HTTP header (can be used multiple times) | None |
+| `--headers=<key:val>` | Alias for `--header` | None |
+| `--help`, `-h` | Display help information | - |
+
+## Help Output
+
+Run `bytekit --help` to see all available options:
+
+```
+bytekit CLI - API Inspection & Type Generation
+
+Usage:
+  bytekit [options] <url>
+
+Options:
+  --type                Generate TypeScript types from a single API response.
+                        Saves to src/types/{endpoint}.ts
+  --swagger             Generate all TypeScript DTOs from a Swagger/OpenAPI spec.
+                        Saves to src/types/api-docs.ts
+  --method=<METHOD>     HTTP method (GET, POST, PUT, DELETE, PATCH). Default: GET.
+  --body=<body>         JSON body for the request.
+  --header=<key:val>    Custom HTTP header (can be used multiple times).
+  --headers=<key:val>   Alias for --header.
+
+Examples:
+  bytekit https://api.example.com/users
+  bytekit --type https://api.example.com/users
+  bytekit --swagger https://api.example.com/swagger.json
+  bytekit --type --method=POST --body='{"name":"test"}' https://api.example.com/users
+```
+
+## Common Use Cases
+
+### Inspecting an API Endpoint
+
+Quickly test an API endpoint without writing any code:
+
+```bash
+bytekit https://jsonplaceholder.typicode.com/posts/1
+```
+
+### Generating Types for a REST API
+
+Fetch user data and generate TypeScript interfaces:
+
+```bash
+bytekit --type https://api.example.com/users/123
+```
+
+This creates `src/types/users.ts` with inferred types.
+
+### Working with POST Requests
+
+Generate types from a POST endpoint with a request body:
+
+```bash
+bytekit --type --method=POST --body='{"username":"test"}' https://api.example.com/login
+```
+
+### Adding Custom Headers
+
+Include authentication or custom headers:
+
+```bash
+bytekit --type --header="Authorization: Bearer token123" https://api.example.com/protected
+```
+
+### Multiple Headers
+
+Add multiple headers to your request:
+
+```bash
+bytekit --type \
+  --header="Authorization: Bearer token123" \
+  --header="X-API-Key: abc123" \
+  https://api.example.com/data
+```
+
+## Error Handling
+
+The CLI provides clear error messages for common issues:
+
+**Missing URL:**
+```bash
+bytekit --type
+# Error: Missing URL
+```
+
+**HTTP Errors:**
+```bash
+bytekit https://api.example.com/invalid
+# Error: HTTP 404: Not Found
+```
+
+**Network Errors:**
+```bash
+bytekit https://invalid-domain.example
+# Error: fetch failed
+```
+
+## Output Directory
+
+Generated type files are automatically saved to:
+
+- **Type Generation:** `src/types/{endpoint}.ts`
+- **Swagger Generation:** `src/types/api-docs.ts`
+
+The CLI creates the `src/types/` directory if it doesn't exist.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Type Generation" icon="code" href="/cli/type-generation">
+    Learn how to generate TypeScript types from API endpoints
+  </Card>
+  <Card title="Swagger Integration" icon="file-code" href="/cli/swagger-integration">
+    Generate types from OpenAPI/Swagger specifications
+  </Card>
+</CardGroup>

@@ -1,0 +1,504 @@
+---
+title: 'Authentication'
+description: 'Token-based authentication patterns with ByteKit ApiClient'
+---
+
+# Authentication
+
+Implement secure authentication flows using ByteKit's `ApiClient` with token management, refresh logic, and protected routes.
+
+## Basic Token Authentication
+
+### Setting Auth Headers
+
+The simplest way to add authentication is through default headers:
+
+```typescript
+import { ApiClient } from '@bytekit/core';
+
+const apiClient = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  defaultHeaders: {
+    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+  },
+});
+```
+
+### Dynamic Token with Interceptors
+
+For dynamic token retrieval, use request interceptors:
+
+```typescript
+const apiClient = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  interceptors: {
+    request: async (url, init) => {
+      const token = localStorage.getItem('auth_token');
+      
+      if (token) {
+        const headers = new Headers(init.headers);
+        headers.set('Authorization', `Bearer ${token}`);
+        
+        return [
+          url,
+          {
+            ...init,
+            headers: Object.fromEntries(headers.entries()),
+          },
+        ];
+      }
+      
+      return [url, init];
+    },
+  },
+});
+```
+
+## Complete Authentication Flow
+
+### Login and Token Storage
+
+```typescript
+interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+interface AuthResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+  };
+}
+
+class AuthService {
+  private client: ApiClient;
+
+  constructor(baseUrl: string) {
+    this.client = new ApiClient({
+      baseUrl,
+      timeoutMs: 10000,
+    });
+  }
+
+  async login(credentials: LoginCredentials): Promise<AuthResponse> {
+    const response = await this.client.post<AuthResponse>('/auth/login', credentials);
+    
+    // Store tokens
+    localStorage.setItem('access_token', response.accessToken);
+    localStorage.setItem('refresh_token', response.refreshToken);
+    
+    // Calculate and store expiration time
+    const expiresAt = Date.now() + response.expiresIn * 1000;
+    localStorage.setItem('token_expires_at', expiresAt.toString());
+    
+    return response;
+  }
+
+  async logout(): Promise<void> {
+    const refreshToken = localStorage.getItem('refresh_token');
+    
+    if (refreshToken) {
+      try {
+        await this.client.post('/auth/logout', { refreshToken });
+      } catch (error) {
+        console.error('Logout failed:', error);
+      }
+    }
+    
+    // Clear stored tokens
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('token_expires_at');
+  }
+
+  isAuthenticated(): boolean {
+    const token = localStorage.getItem('access_token');
+    const expiresAt = localStorage.getItem('token_expires_at');
+    
+    if (!token || !expiresAt) {
+      return false;
+    }
+    
+    return Date.now() < parseInt(expiresAt);
+  }
+
+  getAccessToken(): string | null {
+    return localStorage.getItem('access_token');
+  }
+
+  getRefreshToken(): string | null {
+    return localStorage.getItem('refresh_token');
+  }
+}
+```
+
+## Token Refresh Pattern
+
+### Automatic Token Refresh
+
+```typescript
+class TokenManager {
+  private refreshPromise: Promise<string> | null = null;
+  private authService: AuthService;
+
+  constructor(authService: AuthService) {
+    this.authService = authService;
+  }
+
+  async getValidToken(): Promise<string | null> {
+    const token = this.authService.getAccessToken();
+    
+    if (!token) {
+      return null;
+    }
+
+    // Check if token is expired
+    if (!this.authService.isAuthenticated()) {
+      return this.refreshToken();
+    }
+
+    return token;
+  }
+
+  private async refreshToken(): Promise<string | null> {
+    // Prevent multiple simultaneous refresh requests
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    this.refreshPromise = this.performRefresh();
+
+    try {
+      const newToken = await this.refreshPromise;
+      return newToken;
+    } finally {
+      this.refreshPromise = null;
+    }
+  }
+
+  private async performRefresh(): Promise<string | null> {
+    const refreshToken = this.authService.getRefreshToken();
+
+    if (!refreshToken) {
+      return null;
+    }
+
+    try {
+      const client = new ApiClient({
+        baseUrl: 'https://api.example.com',
+      });
+
+      const response = await client.post<AuthResponse>('/auth/refresh', {
+        refreshToken,
+      });
+
+      // Store new tokens
+      localStorage.setItem('access_token', response.accessToken);
+      localStorage.setItem('refresh_token', response.refreshToken);
+      
+      const expiresAt = Date.now() + response.expiresIn * 1000;
+      localStorage.setItem('token_expires_at', expiresAt.toString());
+
+      return response.accessToken;
+    } catch (error) {
+      // Refresh failed, clear tokens
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token_expires_at');
+      
+      return null;
+    }
+  }
+}
+```
+
+### Integrated Auth Client
+
+```typescript
+class AuthenticatedApiClient {
+  private client: ApiClient;
+  private tokenManager: TokenManager;
+  private authService: AuthService;
+
+  constructor(baseUrl: string) {
+    this.authService = new AuthService(baseUrl);
+    this.tokenManager = new TokenManager(this.authService);
+
+    this.client = new ApiClient({
+      baseUrl,
+      interceptors: {
+        request: async (url, init) => {
+          const token = await this.tokenManager.getValidToken();
+          
+          if (token) {
+            const headers = new Headers(init.headers);
+            headers.set('Authorization', `Bearer ${token}`);
+            
+            return [
+              url,
+              {
+                ...init,
+                headers: Object.fromEntries(headers.entries()),
+              },
+            ];
+          }
+
+          // No token available, redirect to login
+          throw new Error('Authentication required');
+        },
+        response: async (response) => {
+          // Handle 401 errors
+          if (response.status === 401) {
+            // Token might be expired, try to refresh
+            const newToken = await this.tokenManager.getValidToken();
+            
+            if (!newToken) {
+              // Refresh failed, redirect to login
+              window.location.href = '/login';
+            }
+          }
+          
+          return response;
+        },
+      },
+    });
+  }
+
+  async login(credentials: LoginCredentials) {
+    return this.authService.login(credentials);
+  }
+
+  async logout() {
+    return this.authService.logout();
+  }
+
+  getClient(): ApiClient {
+    return this.client;
+  }
+}
+```
+
+## Protected API Requests
+
+### Making Authenticated Requests
+
+```typescript
+const authClient = new AuthenticatedApiClient('https://api.example.com');
+
+// Login first
+await authClient.login({
+  email: 'user@example.com',
+  password: 'secure-password',
+});
+
+// Now make authenticated requests
+const client = authClient.getClient();
+
+const profile = await client.get('/user/profile');
+const settings = await client.get('/user/settings');
+```
+
+### Handling Unauthorized Access
+
+```typescript
+import { ApiError } from '@bytekit/core';
+
+const fetchProtectedData = async () => {
+  try {
+    const data = await client.get('/protected/data');
+    return data;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      // Redirect to login
+      window.location.href = '/login';
+    } else if (error instanceof ApiError && error.status === 403) {
+      // Insufficient permissions
+      console.error('Access denied: insufficient permissions');
+    }
+    throw error;
+  }
+};
+```
+
+## OAuth 2.0 Flow
+
+### OAuth Client
+
+```typescript
+interface OAuthTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  token_type: string;
+}
+
+class OAuthService {
+  private client: ApiClient;
+  private clientId: string;
+  private clientSecret: string;
+  private redirectUri: string;
+
+  constructor(baseUrl: string, clientId: string, clientSecret: string, redirectUri: string) {
+    this.client = new ApiClient({ baseUrl });
+    this.clientId = clientId;
+    this.clientSecret = clientSecret;
+    this.redirectUri = redirectUri;
+  }
+
+  getAuthorizationUrl(state: string): string {
+    const params = new URLSearchParams({
+      client_id: this.clientId,
+      redirect_uri: this.redirectUri,
+      response_type: 'code',
+      state,
+      scope: 'read write',
+    });
+
+    return `${this.client['baseUrl']}/oauth/authorize?${params.toString()}`;
+  }
+
+  async exchangeCodeForToken(code: string): Promise<OAuthTokenResponse> {
+    const response = await this.client.post<OAuthTokenResponse>('/oauth/token', {
+      grant_type: 'authorization_code',
+      code,
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
+      redirect_uri: this.redirectUri,
+    });
+
+    // Store tokens
+    localStorage.setItem('access_token', response.access_token);
+    localStorage.setItem('refresh_token', response.refresh_token);
+    
+    const expiresAt = Date.now() + response.expires_in * 1000;
+    localStorage.setItem('token_expires_at', expiresAt.toString());
+
+    return response;
+  }
+
+  async refreshAccessToken(refreshToken: string): Promise<OAuthTokenResponse> {
+    const response = await this.client.post<OAuthTokenResponse>('/oauth/token', {
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
+    });
+
+    localStorage.setItem('access_token', response.access_token);
+    
+    const expiresAt = Date.now() + response.expires_in * 1000;
+    localStorage.setItem('token_expires_at', expiresAt.toString());
+
+    return response;
+  }
+}
+```
+
+## API Key Authentication
+
+### Simple API Key
+
+```typescript
+const apiClient = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  defaultHeaders: {
+    'X-API-Key': process.env.API_KEY,
+  },
+});
+```
+
+### API Key with Signature
+
+```typescript
+import { CryptoUtils } from '@bytekit/helpers';
+
+const apiClient = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  interceptors: {
+    request: async (url, init) => {
+      const apiKey = process.env.API_KEY;
+      const apiSecret = process.env.API_SECRET;
+      const timestamp = Date.now().toString();
+      
+      // Create signature
+      const message = `${timestamp}${init.method}${url}`;
+      const signature = await CryptoUtils.hmacSHA256(message, apiSecret);
+      
+      const headers = new Headers(init.headers);
+      headers.set('X-API-Key', apiKey);
+      headers.set('X-Timestamp', timestamp);
+      headers.set('X-Signature', signature);
+      
+      return [url, { ...init, headers: Object.fromEntries(headers.entries()) }];
+    },
+  },
+});
+```
+
+## Complete Example: Multi-Provider Auth
+
+```typescript
+type AuthProvider = 'jwt' | 'oauth' | 'apikey';
+
+class MultiAuthClient {
+  private client: ApiClient;
+  private provider: AuthProvider;
+
+  constructor(baseUrl: string, provider: AuthProvider) {
+    this.provider = provider;
+
+    this.client = new ApiClient({
+      baseUrl,
+      interceptors: {
+        request: async (url, init) => {
+          return this.addAuthHeaders(url, init);
+        },
+      },
+    });
+  }
+
+  private async addAuthHeaders(url: string, init: RequestInit): Promise<[string, RequestInit]> {
+    const headers = new Headers(init.headers);
+
+    switch (this.provider) {
+      case 'jwt':
+        const token = localStorage.getItem('access_token');
+        if (token) {
+          headers.set('Authorization', `Bearer ${token}`);
+        }
+        break;
+
+      case 'oauth':
+        const oauthToken = localStorage.getItem('oauth_token');
+        if (oauthToken) {
+          headers.set('Authorization', `Bearer ${oauthToken}`);
+        }
+        break;
+
+      case 'apikey':
+        const apiKey = process.env.API_KEY;
+        if (apiKey) {
+          headers.set('X-API-Key', apiKey);
+        }
+        break;
+    }
+
+    return [url, { ...init, headers: Object.fromEntries(headers.entries()) }];
+  }
+
+  getClient(): ApiClient {
+    return this.client;
+  }
+}
+```
+
+## See Also
+
+- [REST API Integration](/examples/rest-api-integration) - Complete API client setup
+- [Error Handling](/examples/error-handling) - Handle auth errors
+- [API Client Reference](/api-reference/api-client) - ApiClient documentation

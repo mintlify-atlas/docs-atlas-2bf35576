@@ -1,97 +1,270 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: ByteKit Documentation
+description: Lightning-fast TypeScript utilities for modern applications
+mode: custom
 ---
 
-## Setting up
+<div className="relative overflow-hidden dark:bg-[#0f1117] bg-white py-20">
+  <div className="absolute inset-0 dark:bg-gradient-to-br dark:from-[#1a1d27] dark:via-[#0f1117] dark:to-[#cb0404]/10 bg-gradient-to-br from-gray-50 via-white to-[#cb0404]/5"></div>
+  <div className="relative max-w-7xl mx-auto px-6 lg:px-8">
+    <div className="lg:grid lg:grid-cols-12 lg:gap-8 items-center">
+      <div className="lg:col-span-7">
+        <h1 className="text-5xl sm:text-6xl font-bold dark:text-white text-gray-900 mb-6">
+          Lightning-fast TypeScript utilities
+        </h1>
+        <p className="text-xl dark:text-gray-400 text-gray-600 max-w-2xl mb-8">
+          Isomorphic API client, state management, and 28+ utility modules. Zero dependencies, tree-shakeable, works everywhere.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <a 
+            href="/quickstart" 
+            className="inline-flex items-center px-6 py-3 rounded-lg bg-[#cb0404] hover:bg-[#a30303] text-white font-semibold transition-colors no-underline"
+          >
+            Get Started
+            <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+          <a 
+            href="/api/core/api-client" 
+            className="inline-flex items-center px-6 py-3 rounded-lg border dark:border-[#27272a] border-gray-300 dark:bg-white/5 bg-white/50 dark:text-white text-gray-900 font-semibold dark:hover:border-[#cb0404] hover:border-[#cb0404] transition-colors no-underline"
+          >
+            API Reference
+          </a>
+        </div>
+        <div className="mt-8 flex items-center gap-6 dark:text-gray-400 text-gray-600 text-sm">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-[#cb0404]" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            Zero dependencies
+          </div>
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-[#cb0404]" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            95%+ test coverage
+          </div>
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-[#cb0404]" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            Node & Browser
+          </div>
+        </div>
+      </div>
+      <div className="hidden lg:block lg:col-span-5">
+        <div className="dark:bg-[#1a1d27] bg-gray-50 rounded-2xl dark:border-[#27272a] border-gray-200 border p-6 shadow-xl">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+          </div>
+          <pre className="text-sm dark:text-gray-300 text-gray-700"><code>{`import { ApiClient } from "bytekit";
 
-Get your documentation site up and running in minutes.
+const api = new ApiClient({
+  baseUrl: "https://api.example.com",
+  retryPolicy: { 
+    maxAttempts: 3 
+  }
+});
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+const users = await api.get("/users");`}</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-## Make it yours
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">Quick start</h2>
+  <p className="text-base dark:text-gray-400 text-gray-600 mb-8">Get up and running with ByteKit in minutes</p>
+  
+  <Steps>
+    <Step title="Install ByteKit">
+      Install the package using your preferred package manager:
+      
+      <CodeGroup>
+      ```bash npm
+      npm install bytekit
+      ```
+      ```bash yarn
+      yarn add bytekit
+      ```
+      ```bash pnpm
+      pnpm add bytekit
+      ```
+      </CodeGroup>
+    </Step>
+    
+    <Step title="Import and configure">
+      Import the modules you need. ByteKit is fully tree-shakeable:
+      
+      ```typescript
+      import { ApiClient, createLogger, StringUtils } from "bytekit";
+      
+      const api = new ApiClient({
+        baseUrl: "https://api.example.com",
+        defaultHeaders: { "X-API-Key": process.env.API_KEY }
+      });
+      
+      const logger = createLogger({ 
+        namespace: "app", 
+        level: "info" 
+      });
+      ```
+    </Step>
+    
+    <Step title="Start building">
+      Use ByteKit's utilities in your application:
+      
+      ```typescript
+      // Make API calls with automatic retries
+      const users = await api.get("/users");
+      
+      // Log structured messages
+      logger.info("Users fetched", { count: users.length });
+      
+      // Use helper utilities
+      const slug = StringUtils.slugify("New Feature – 2024");
+      ```
+    </Step>
+  </Steps>
+</div>
 
-Design a docs site that looks great and empowers your users.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">Core features</h2>
+  <p className="text-base dark:text-gray-400 text-gray-600 mb-8">Everything you need for modern TypeScript development</p>
+  
+  <CardGroup cols={2}>
+    <Card title="API Client" icon="plug" href="/guides/api-client">
+      Isomorphic HTTP client with retries, circuit breaker, and localized errors
+    </Card>
+    <Card title="State Management" icon="database" href="/guides/state-management">
+      QueryClient for powerful async state management with caching and invalidation
+    </Card>
+    <Card title="Logging & Profiling" icon="chart-line" href="/guides/logging-profiling">
+      Structured logging and performance profiling utilities
+    </Card>
+    <Card title="28+ Utility Modules" icon="toolbox" href="/api/helpers/string-utils">
+      String, Date, Array, Object, Crypto, Cache, and more
+    </Card>
+  </CardGroup>
+</div>
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">Explore by topic</h2>
+  <p className="text-base dark:text-gray-400 text-gray-600 mb-8">Deep dive into ByteKit's capabilities</p>
+  
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <a 
+      href="/concepts/architecture" 
+      className="group block rounded-2xl dark:border-[#27272a] border-gray-200 border dark:bg-[#1a1d27] bg-gray-50 overflow-hidden dark:hover:border-[#cb0404] hover:border-[#cb0404] transition-colors no-underline"
+    >
+      <div className="p-6">
+        <h3 className="text-base font-semibold dark:text-white text-gray-900 mb-2">Core Concepts</h3>
+        <p className="text-sm dark:text-gray-400 text-gray-600 mb-4">
+          Understand ByteKit's architecture, tree-shaking support, and isomorphic design
+        </p>
+        <div className="flex items-center text-sm dark:text-[#cb0404] text-[#cb0404] dark:group-hover:text-[#cb0404] group-hover:text-[#a30303]">
+          Learn more
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+    
+    <a 
+      href="/api/core/api-client" 
+      className="group block rounded-2xl dark:border-[#27272a] border-gray-200 border dark:bg-[#1a1d27] bg-gray-50 overflow-hidden dark:hover:border-[#cb0404] hover:border-[#cb0404] transition-colors no-underline"
+    >
+      <div className="p-6">
+        <h3 className="text-base font-semibold dark:text-white text-gray-900 mb-2">API Reference</h3>
+        <p className="text-sm dark:text-gray-400 text-gray-600 mb-4">
+          Complete API documentation for all 37 modules with types and examples
+        </p>
+        <div className="flex items-center text-sm dark:text-[#cb0404] text-[#cb0404] dark:group-hover:text-[#cb0404] group-hover:text-[#a30303]">
+          Browse API docs
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+    
+    <a 
+      href="/cli/overview" 
+      className="group block rounded-2xl dark:border-[#27272a] border-gray-200 border dark:bg-[#1a1d27] bg-gray-50 overflow-hidden dark:hover:border-[#cb0404] hover:border-[#cb0404] transition-colors no-underline"
+    >
+      <div className="p-6">
+        <h3 className="text-base font-semibold dark:text-white text-gray-900 mb-2">CLI Tool</h3>
+        <p className="text-sm dark:text-gray-400 text-gray-600 mb-4">
+          Generate TypeScript types from API endpoints and Swagger/OpenAPI specs
+        </p>
+        <div className="flex items-center text-sm dark:text-[#cb0404] text-[#cb0404] dark:group-hover:text-[#cb0404] group-hover:text-[#a30303]">
+          View CLI docs
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+    
+    <a 
+      href="/examples/react" 
+      className="group block rounded-2xl dark:border-[#27272a] border-gray-200 border dark:bg-[#1a1d27] bg-gray-50 overflow-hidden dark:hover:border-[#cb0404] hover:border-[#cb0404] transition-colors no-underline"
+    >
+      <div className="p-6">
+        <h3 className="text-base font-semibold dark:text-white text-gray-900 mb-2">Framework Examples</h3>
+        <p className="text-sm dark:text-gray-400 text-gray-600 mb-4">
+          Learn how to use ByteKit with React, Vue, Svelte, Next.js, and more
+        </p>
+        <div className="flex items-center text-sm dark:text-[#cb0404] text-[#cb0404] dark:group-hover:text-[#cb0404] group-hover:text-[#a30303]">
+          See examples
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
 
-## Create beautiful pages
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">Community & support</h2>
+  <p className="text-base dark:text-gray-400 text-gray-600 mb-8">Get help and connect with other developers</p>
+  
+  <CardGroup cols={2}>
+    <Card title="GitHub Discussions" icon="github" href="https://github.com/sebamar88/bytekit/discussions">
+      Ask questions, share ideas, and get community support
+    </Card>
+    <Card title="Report Issues" icon="bug" href="https://github.com/sebamar88/bytekit/issues">
+      Found a bug? Report it and help improve ByteKit
+    </Card>
+    <Card title="Contributing Guide" icon="code-pull-request" href="https://github.com/sebamar88/bytekit/blob/main/CONTRIBUTING.md">
+      Learn how to contribute to ByteKit
+    </Card>
+    <Card title="Changelog" icon="clock-rotate-left" href="https://github.com/sebamar88/bytekit/blob/main/CHANGELOG.md">
+      See what's new in the latest releases
+    </Card>
+  </CardGroup>
+</div>
 
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<div className="mt-20 mb-16 max-w-5xl mx-auto px-6">
+  <div className="rounded-2xl dark:bg-gradient-to-r dark:from-[#cb0404]/20 dark:to-[#e37b84]/20 bg-gradient-to-r from-[#f3d2d2] to-[#e37b84]/30 dark:border-[#cb0404]/30 border-[#cb0404]/20 border p-8 md:p-12">
+    <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">Ready to get started?</h2>
+    <p className="text-lg dark:text-gray-300 text-gray-700 mb-6 max-w-2xl">
+      Install ByteKit today and start building with powerful, type-safe utilities that work everywhere.
+    </p>
+    <a 
+      href="/quickstart" 
+      className="inline-flex items-center px-6 py-3 rounded-lg bg-[#cb0404] hover:bg-[#a30303] text-white font-semibold transition-colors no-underline"
+    >
+      Get Started Now
+      <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      </svg>
+    </a>
+  </div>
+</div>

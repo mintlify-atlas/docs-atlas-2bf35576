@@ -1,0 +1,513 @@
+---
+title: Signal
+description: Fine-grained reactive state management with automatic dependency tracking
+---
+
+## Overview
+
+The `Signal` system provides fine-grained reactivity for state management without full component re-renders. It automatically tracks dependencies and updates only what changed, similar to Preact Signals, SolidJS, or Vue 3 reactivity.
+
+## Import
+
+```typescript
+import { Signal, Computed, signal, computed, effect, batch, untracked } from 'bytekit';
+```
+
+## Usage
+
+### Basic Signals
+
+```typescript
+import { signal, effect } from 'bytekit';
+
+// Create a signal
+const count = signal(0);
+
+// Read value
+console.log(count.value); // 0
+
+// Update value
+count.value = 5;
+console.log(count.value); // 5
+
+// React to changes
+effect(() => {
+  console.log('Count changed:', count.value);
+});
+// Logs: "Count changed: 5" (immediately)
+
+count.value = 10;
+// Logs: "Count changed: 10" (on change)
+```
+
+### Computed Signals
+
+```typescript
+import { signal, computed } from 'bytekit';
+
+const firstName = signal('John');
+const lastName = signal('Doe');
+
+// Computed value automatically updates
+const fullName = computed(() => {
+  return `${firstName.value} ${lastName.value}`;
+});
+
+console.log(fullName.value); // "John Doe"
+
+firstName.value = 'Jane';
+console.log(fullName.value); // "Jane Doe"
+
+// Computed values are cached
+const expensive = computed(() => {
+  console.log('Computing...');
+  return firstName.value.toUpperCase();
+});
+
+console.log(expensive.value); // Logs "Computing...", returns "JANE"
+console.log(expensive.value); // No log, returns cached "JANE"
+firstName.value = 'Bob'; // Invalidates cache
+console.log(expensive.value); // Logs "Computing...", returns "BOB"
+```
+
+### Effects
+
+```typescript
+import { signal, effect } from 'bytekit';
+
+const user = signal({ name: 'John', age: 30 });
+
+// Effect runs when dependencies change
+const dispose = effect(() => {
+  console.log(`User: ${user.value.name}, Age: ${user.value.age}`);
+  // This effect automatically tracks 'user' signal
+});
+
+user.value = { name: 'Jane', age: 25 };
+// Logs: "User: Jane, Age: 25"
+
+// Cleanup
+dispose();
+user.value = { name: 'Bob', age: 35 }; // No log (disposed)
+```
+
+### Effect Cleanup
+
+```typescript
+import { signal, effect } from 'bytekit';
+
+const userId = signal('user-1');
+
+const dispose = effect(() => {
+  const id = userId.value;
+  console.log('Fetching user:', id);
+  
+  const controller = new AbortController();
+  fetch(`/api/users/${id}`, { signal: controller.signal })
+    .then(r => r.json())
+    .then(data => console.log('User data:', data));
+  
+  // Cleanup function
+  return () => {
+    console.log('Aborting fetch for:', id);
+    controller.abort();
+  };
+});
+
+userId.value = 'user-2'; // Aborts previous fetch, starts new one
+
+// Final cleanup
+dispose();
+```
+
+### Batch Updates
+
+```typescript
+import { signal, effect, batch } from 'bytekit';
+
+const firstName = signal('John');
+const lastName = signal('Doe');
+
+let effectRuns = 0;
+effect(() => {
+  effectRuns++;
+  console.log(`${firstName.value} ${lastName.value}`);
+});
+
+// Without batching - effect runs twice
+firstName.value = 'Jane';
+lastName.value = 'Smith';
+console.log('Effect ran', effectRuns, 'times'); // 3 times (initial + 2 updates)
+
+// With batching - effect runs once
+batch(() => {
+  firstName.value = 'Bob';
+  lastName.value = 'Johnson';
+});
+console.log('Effect ran', effectRuns, 'times'); // 4 times (only 1 more)
+```
+
+### Untracked Reads
+
+```typescript
+import { signal, computed, untracked } from 'bytekit';
+
+const count = signal(0);
+const multiplier = signal(2);
+
+// This computed only tracks 'count', not 'multiplier'
+const result = computed(() => {
+  const c = count.value;
+  const m = untracked(() => multiplier.value); // Not tracked
+  return c * m;
+});
+
+console.log(result.value); // 0
+
+count.value = 5;
+console.log(result.value); // 10 (recomputed)
+
+multiplier.value = 3;
+console.log(result.value); // 10 (NOT recomputed, still uses old multiplier)
+```
+
+### Peek Without Subscribing
+
+```typescript
+import { signal, computed } from 'bytekit';
+
+const count = signal(0);
+
+const logger = computed(() => {
+  // Peek reads value without creating dependency
+  const current = count.peek();
+  console.log('Current count:', current);
+  return current;
+});
+
+logger.value; // Logs once
+count.value = 5; // logger doesn't recompute (no dependency)
+```
+
+## API Reference
+
+### Signal Class
+
+#### Constructor
+
+<ParamField path="initialValue" type="T" required>
+  Initial value for the signal
+</ParamField>
+
+```typescript
+const count = new Signal(0);
+const user = new Signal({ name: 'John' });
+```
+
+#### Properties
+
+##### value
+
+Get or set the signal value. Reading automatically subscribes in reactive contexts.
+
+```typescript
+const count = signal(5);
+console.log(count.value); // Get
+count.value = 10; // Set
+```
+
+##### subscriberCount
+
+Get number of active subscribers (for debugging).
+
+<ResponseField name="subscriberCount" type="number">
+  Number of active subscribers
+</ResponseField>
+
+```typescript
+const count = signal(0);
+console.log(count.subscriberCount); // 0
+
+effect(() => count.value);
+console.log(count.subscriberCount); // 1
+```
+
+#### Methods
+
+##### peek
+
+Read value without subscribing.
+
+<ResponseField name="return" type="T">
+  Current value
+</ResponseField>
+
+```typescript
+const count = signal(5);
+const value = count.peek(); // Doesn't create dependency
+```
+
+##### subscribe
+
+Manually subscribe to changes.
+
+<ParamField path="callback" type="() => void" required>
+  Function to call on changes
+</ParamField>
+
+<ResponseField name="return" type="() => void">
+  Unsubscribe function
+</ResponseField>
+
+```typescript
+const count = signal(0);
+const unsubscribe = count.subscribe(() => {
+  console.log('Changed to:', count.peek());
+});
+
+count.value = 5; // Logs: "Changed to: 5"
+unsubscribe();
+```
+
+### Computed Class
+
+#### Constructor
+
+<ParamField path="compute" type="() => T" required>
+  Function to compute the value
+</ParamField>
+
+```typescript
+const count = signal(5);
+const doubled = new Computed(() => count.value * 2);
+```
+
+#### Properties
+
+##### value
+
+Get computed value (read-only).
+
+```typescript
+const doubled = computed(() => count.value * 2);
+console.log(doubled.value);
+// doubled.value = 10; // Error: Cannot set value of computed signal
+```
+
+#### Methods
+
+##### refresh
+
+Force recomputation.
+
+```typescript
+const now = computed(() => Date.now());
+console.log(now.value);
+now.refresh();
+console.log(now.value); // Different timestamp
+```
+
+### Functions
+
+#### signal
+
+Create a new signal.
+
+<ParamField path="initialValue" type="T" required>
+  Initial value
+</ParamField>
+
+<ResponseField name="return" type="Signal<T>">
+  New signal instance
+</ResponseField>
+
+```typescript
+const count = signal(0);
+const user = signal({ name: 'John' });
+```
+
+#### computed
+
+Create a computed signal.
+
+<ParamField path="compute" type="() => T" required>
+  Computation function
+</ParamField>
+
+<ResponseField name="return" type="Computed<T>">
+  New computed signal
+</ResponseField>
+
+```typescript
+const fullName = computed(() => `${first.value} ${last.value}`);
+```
+
+#### effect
+
+Create a reactive effect.
+
+<ParamField path="callback" type="() => void | (() => void)" required>
+  Effect function, optionally returns cleanup function
+</ParamField>
+
+<ResponseField name="return" type="() => void">
+  Dispose function
+</ResponseField>
+
+```typescript
+const dispose = effect(() => {
+  console.log('Count:', count.value);
+  return () => console.log('Cleanup');
+});
+
+dispose(); // Runs cleanup
+```
+
+#### batch
+
+Batch multiple signal updates.
+
+<ParamField path="callback" type="() => void" required>
+  Function containing updates to batch
+</ParamField>
+
+```typescript
+batch(() => {
+  signal1.value = 'a';
+  signal2.value = 'b';
+  signal3.value = 'c';
+}); // All dependent effects run once
+```
+
+#### untracked
+
+Run code without tracking dependencies.
+
+<ParamField path="callback" type="() => T" required>
+  Function to run untracked
+</ParamField>
+
+<ResponseField name="return" type="T">
+  Return value of callback
+</ResponseField>
+
+```typescript
+const value = untracked(() => signal.value); // Doesn't create dependency
+```
+
+## Use Cases
+
+### State Management
+
+```typescript
+import { signal, computed } from 'bytekit';
+
+class Store {
+  count = signal(0);
+  user = signal<User | null>(null);
+  
+  // Computed states
+  isLoggedIn = computed(() => this.user.value !== null);
+  doubleCount = computed(() => this.count.value * 2);
+  
+  // Actions
+  increment() {
+    this.count.value++;
+  }
+  
+  login(user: User) {
+    this.user.value = user;
+  }
+}
+
+const store = new Store();
+```
+
+### Reactive Data Fetching
+
+```typescript
+import { signal, effect } from 'bytekit';
+
+class UserData {
+  userId = signal<string | null>(null);
+  userData = signal<User | null>(null);
+  loading = signal(false);
+  error = signal<Error | null>(null);
+  
+  constructor() {
+    effect(() => {
+      const id = this.userId.value;
+      if (!id) return;
+      
+      this.loading.value = true;
+      this.error.value = null;
+      
+      const controller = new AbortController();
+      
+      fetch(`/api/users/${id}`, { signal: controller.signal })
+        .then(r => r.json())
+        .then(data => {
+          this.userData.value = data;
+          this.loading.value = false;
+        })
+        .catch(err => {
+          if (err.name !== 'AbortError') {
+            this.error.value = err;
+            this.loading.value = false;
+          }
+        });
+      
+      return () => controller.abort();
+    });
+  }
+}
+```
+
+### Form State
+
+```typescript
+import { signal, computed, batch } from 'bytekit';
+
+class FormState {
+  email = signal('');
+  password = signal('');
+  
+  emailError = computed(() => {
+    const email = this.email.value;
+    if (!email) return 'Required';
+    if (!email.includes('@')) return 'Invalid email';
+    return null;
+  });
+  
+  isValid = computed(() => {
+    return !this.emailError.value && this.password.value.length >= 8;
+  });
+  
+  reset() {
+    batch(() => {
+      this.email.value = '';
+      this.password.value = '';
+    });
+  }
+}
+```
+
+## Best Practices
+
+1. **Use computed for derived state** instead of effects with manual updates
+2. **Batch related updates** to minimize effect runs
+3. **Dispose effects** when no longer needed to prevent memory leaks
+4. **Use peek()** when you need a value without creating dependency
+5. **Use untracked()** for conditional dependencies
+
+## Performance
+
+- Signals update only changed dependencies (fine-grained)
+- Computed values are cached until dependencies change
+- Effects run asynchronously by default
+- Batch updates minimize effect executions
+
+## Related
+
+- [EventEmitter](/api/helpers/event-emitter) - For event-based reactivity
+- [Store](/api/state/store) - For global state management

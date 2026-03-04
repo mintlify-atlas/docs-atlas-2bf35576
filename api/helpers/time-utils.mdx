@@ -1,0 +1,668 @@
+---
+title: 'TimeUtils'
+description: 'Time and timing utilities for debounce, throttle, delays, retries, and async operations'
+---
+
+## Overview
+
+TimeUtils is a class providing comprehensive timing utilities for async operations, including debouncing, throttling, delays, timeouts, retries with exponential backoff, promise management, and performance measurement.
+
+## Import
+
+```typescript
+import { TimeUtils } from '@bytekit/utils/helpers';
+```
+
+## Methods
+
+### debounce
+
+Creates a debounced function that delays execution until after wait ms have elapsed since the last call.
+
+<ParamField path="fn" type="T extends (...args: unknown[]) => unknown" required>
+  The function to debounce
+</ParamField>
+
+<ParamField path="wait" type="number" required>
+  Milliseconds to wait before execution
+</ParamField>
+
+<ParamField path="options" type="DebounceOptions">
+  Optional configuration
+  
+  <ParamField path="leading" type="boolean" default="false">
+    Execute on the leading edge
+  </ParamField>
+  
+  <ParamField path="trailing" type="boolean" default="true">
+    Execute on the trailing edge
+  </ParamField>
+  
+  <ParamField path="maxWait" type="number">
+    Maximum time to wait before forcing execution
+  </ParamField>
+</ParamField>
+
+**Returns:** `(...args: Parameters<T>) => void` - Debounced function
+
+```typescript
+// Basic debounce - waits for user to stop typing
+const handleSearch = TimeUtils.debounce((query: string) => {
+  console.log('Searching for:', query);
+}, 300);
+
+handleSearch('h');
+handleSearch('he');
+handleSearch('hel');
+handleSearch('hell');
+handleSearch('hello');
+// Only logs once: "Searching for: hello" (after 300ms of no calls)
+
+// With leading edge
+const handleClick = TimeUtils.debounce(
+  () => console.log('Clicked'),
+  1000,
+  { leading: true, trailing: false }
+);
+
+// Executes immediately on first call, ignores subsequent calls
+handleClick(); // Logs immediately
+handleClick(); // Ignored
+handleClick(); // Ignored
+
+// With maxWait to prevent indefinite delays
+const handleScroll = TimeUtils.debounce(
+  () => console.log('Scroll ended'),
+  500,
+  { maxWait: 2000 }
+);
+// Guaranteed to execute at least every 2 seconds during continuous scrolling
+```
+
+**Use Cases:**
+- Search input handlers
+- Window resize handlers
+- Auto-save functionality
+- API request throttling
+
+---
+
+### throttle
+
+Creates a throttled function that executes at most once every wait ms.
+
+<ParamField path="fn" type="T extends (...args: unknown[]) => unknown" required>
+  The function to throttle
+</ParamField>
+
+<ParamField path="wait" type="number" required>
+  Milliseconds between allowed executions
+</ParamField>
+
+<ParamField path="options" type="ThrottleOptions">
+  Optional configuration
+  
+  <ParamField path="leading" type="boolean" default="true">
+    Execute on the leading edge
+  </ParamField>
+  
+  <ParamField path="trailing" type="boolean" default="true">
+    Execute on the trailing edge
+  </ParamField>
+</ParamField>
+
+**Returns:** `(...args: Parameters<T>) => void` - Throttled function
+
+```typescript
+// Basic throttle - limits execution rate
+const handleMouseMove = TimeUtils.throttle((e: MouseEvent) => {
+  console.log('Mouse at:', e.clientX, e.clientY);
+}, 100);
+
+// Logs at most every 100ms during mouse movement
+
+// With trailing edge only
+const handleInput = TimeUtils.throttle(
+  (value: string) => console.log('Input:', value),
+  1000,
+  { leading: false, trailing: true }
+);
+
+// Without leading edge
+const trackScroll = TimeUtils.throttle(
+  () => console.log('Scrolled'),
+  500,
+  { leading: false }
+);
+```
+
+**Use Cases:**
+- Mouse move/scroll handlers
+- Button click prevention
+- API polling rate limiting
+- Animation frame updates
+
+---
+
+### sleep
+
+Pauses execution for specified milliseconds.
+
+<ParamField path="ms" type="number" required>
+  Milliseconds to sleep
+</ParamField>
+
+**Returns:** `Promise<void>` - Promise that resolves after delay
+
+```typescript
+async function processSteps() {
+  console.log('Step 1');
+  await TimeUtils.sleep(1000);
+  console.log('Step 2');
+  await TimeUtils.sleep(2000);
+  console.log('Step 3');
+}
+
+// Rate limiting API requests
+async function fetchBatch(ids: string[]) {
+  const results = [];
+  for (const id of ids) {
+    results.push(await fetchData(id));
+    await TimeUtils.sleep(100); // Wait 100ms between requests
+  }
+  return results;
+}
+```
+
+---
+
+### delay
+
+Delays execution of a function and returns its result.
+
+<ParamField path="fn" type="() => T" required>
+  Function to execute after delay
+</ParamField>
+
+<ParamField path="ms" type="number" required>
+  Milliseconds to wait before execution
+</ParamField>
+
+**Returns:** `Promise<T>` - Promise resolving to function result
+
+```typescript
+const result = await TimeUtils.delay(() => {
+  return 'Hello';
+}, 1000);
+console.log(result); // Logs 'Hello' after 1 second
+
+// With async function
+const data = await TimeUtils.delay(async () => {
+  return await fetchData();
+}, 500);
+
+// Scheduled notification
+await TimeUtils.delay(() => {
+  showNotification('Time is up!');
+}, 5000);
+```
+
+---
+
+### timeout
+
+Executes a promise with a timeout limit.
+
+<ParamField path="promise" type="Promise<T>" required>
+  Promise to execute with timeout
+</ParamField>
+
+<ParamField path="ms" type="number" required>
+  Timeout in milliseconds
+</ParamField>
+
+<ParamField path="message" type="string" default="Operation timed out">
+  Error message if timeout occurs
+</ParamField>
+
+**Returns:** `Promise<T>` - Promise that rejects if timeout is reached
+
+**Throws:** `Error` if timeout is reached
+
+```typescript
+try {
+  const data = await TimeUtils.timeout(
+    fetch('https://api.example.com/data'),
+    5000
+  );
+  console.log('Success:', data);
+} catch (error) {
+  console.error('Failed or timed out:', error);
+}
+
+// Custom timeout message
+try {
+  const result = await TimeUtils.timeout(
+    slowOperation(),
+    3000,
+    'Operation took too long'
+  );
+} catch (error) {
+  console.error(error.message); // 'Operation took too long'
+}
+
+// Timeout for user input
+const response = await TimeUtils.timeout(
+  waitForUserInput(),
+  10000,
+  'User input timeout'
+);
+```
+
+---
+
+### retryAsync
+
+Retries an async function with exponential backoff on failure.
+
+<ParamField path="fn" type="() => Promise<T>" required>
+  Async function to retry
+</ParamField>
+
+<ParamField path="options" type="object">
+  Retry configuration
+  
+  <ParamField path="maxAttempts" type="number" default="3">
+    Maximum number of attempts
+  </ParamField>
+  
+  <ParamField path="initialDelayMs" type="number" default="100">
+    Initial delay in milliseconds
+  </ParamField>
+  
+  <ParamField path="maxDelayMs" type="number" default="10000">
+    Maximum delay in milliseconds
+  </ParamField>
+  
+  <ParamField path="backoffMultiplier" type="number" default="2">
+    Multiplier for exponential backoff
+  </ParamField>
+</ParamField>
+
+**Returns:** `Promise<T>` - Promise resolving to function result
+
+**Throws:** Last error if all attempts fail
+
+```typescript
+// Basic retry
+const data = await TimeUtils.retryAsync(async () => {
+  return await fetch('https://api.example.com/data');
+});
+
+// Custom retry configuration
+const result = await TimeUtils.retryAsync(
+  async () => {
+    const response = await fetch('/api/data');
+    if (!response.ok) throw new Error('Request failed');
+    return response.json();
+  },
+  {
+    maxAttempts: 5,
+    initialDelayMs: 500,
+    maxDelayMs: 30000,
+    backoffMultiplier: 2
+  }
+);
+
+// Delays between attempts:
+// Attempt 1: immediate
+// Attempt 2: 500ms delay
+// Attempt 3: 1000ms delay
+// Attempt 4: 2000ms delay
+// Attempt 5: 4000ms delay
+```
+
+**Backoff Calculation:**
+```
+delay = min(initialDelayMs * (backoffMultiplier ^ (attempt - 1)), maxDelayMs)
+```
+
+---
+
+### race
+
+Races multiple promises, returning the first to resolve.
+
+<ParamField path="promises" type="Promise<T>[]" required>
+  Array of promises to race
+</ParamField>
+
+**Returns:** `Promise<T>` - First promise to resolve
+
+```typescript
+const fastest = await TimeUtils.race([
+  fetch('https://api1.example.com/data'),
+  fetch('https://api2.example.com/data'),
+  fetch('https://api3.example.com/data')
+]);
+// Returns result from fastest API
+
+// With timeout
+const result = await TimeUtils.race([
+  fetchData(),
+  TimeUtils.sleep(5000).then(() => null)
+]);
+// Returns data or null if takes longer than 5 seconds
+```
+
+---
+
+### all
+
+Waits for all promises to resolve.
+
+<ParamField path="promises" type="Promise<T>[]" required>
+  Array of promises to wait for
+</ParamField>
+
+**Returns:** `Promise<T[]>` - Array of all resolved values
+
+**Throws:** If any promise rejects
+
+```typescript
+const [users, posts, comments] = await TimeUtils.all([
+  fetchUsers(),
+  fetchPosts(),
+  fetchComments()
+]);
+
+console.log('All data loaded:', { users, posts, comments });
+```
+
+---
+
+### allSettled
+
+Waits for all promises to settle (resolve or reject).
+
+<ParamField path="promises" type="Promise<T>[]" required>
+  Array of promises to wait for
+</ParamField>
+
+**Returns:** `Promise<PromiseSettledResult<T>[]>` - Array of settled results
+
+```typescript
+const results = await TimeUtils.allSettled([
+  fetchUsers(),
+  fetchPosts(),
+  fetchComments()
+]);
+
+results.forEach((result, index) => {
+  if (result.status === 'fulfilled') {
+    console.log(`Promise ${index} succeeded:`, result.value);
+  } else {
+    console.error(`Promise ${index} failed:`, result.reason);
+  }
+});
+
+// Process only successful results
+const successful = results
+  .filter(r => r.status === 'fulfilled')
+  .map(r => r.value);
+```
+
+---
+
+### createQueue
+
+Creates a queue for managing concurrent async operations.
+
+<ParamField path="concurrency" type="number" default="1">
+  Maximum number of concurrent operations
+</ParamField>
+
+**Returns:** Object with `add` and `size` methods
+
+```typescript
+const queue = TimeUtils.createQueue(3);
+
+// Add tasks to queue
+const tasks = ids.map(id => 
+  queue.add(() => processItem(id))
+);
+
+// Wait for all tasks
+const results = await Promise.all(tasks);
+
+// Check queue size
+console.log('Queue size:', queue.size());
+
+// Example: Rate-limited API calls
+const apiQueue = TimeUtils.createQueue(5);
+
+for (const userId of userIds) {
+  apiQueue.add(async () => {
+    const data = await fetch(`/api/users/${userId}`);
+    return data.json();
+  });
+}
+```
+
+**Queue Methods:**
+- `add<T>(fn: () => Promise<T>): Promise<T>` - Add task to queue
+- `size(): number` - Current queue size including running tasks
+
+---
+
+### measureAsync
+
+Measures execution time of an async function.
+
+<ParamField path="fn" type="() => Promise<T>" required>
+  Async function to measure
+</ParamField>
+
+**Returns:** `Promise<{ result: T; durationMs: number }>` - Result and duration
+
+```typescript
+const { result, durationMs } = await TimeUtils.measureAsync(async () => {
+  const data = await fetchData();
+  return processData(data);
+});
+
+console.log(`Operation completed in ${durationMs}ms`);
+console.log('Result:', result);
+
+// Performance monitoring
+const metrics = await TimeUtils.measureAsync(() => heavyComputation());
+if (metrics.durationMs > 1000) {
+  console.warn('Slow operation detected:', metrics.durationMs);
+}
+```
+
+---
+
+### measureSync
+
+Measures execution time of a synchronous function.
+
+<ParamField path="fn" type="() => T" required>
+  Function to measure
+</ParamField>
+
+**Returns:** `{ result: T; durationMs: number }` - Result and duration
+
+```typescript
+const { result, durationMs } = TimeUtils.measureSync(() => {
+  let sum = 0;
+  for (let i = 0; i < 1000000; i++) {
+    sum += i;
+  }
+  return sum;
+});
+
+console.log(`Calculation took ${durationMs}ms`);
+console.log('Sum:', result);
+```
+
+---
+
+### formatDuration
+
+Formats milliseconds into a human-readable string.
+
+<ParamField path="ms" type="number" required>
+  Duration in milliseconds
+</ParamField>
+
+**Returns:** `string` - Formatted duration
+
+```typescript
+TimeUtils.formatDuration(500);
+// Returns: '500ms'
+
+TimeUtils.formatDuration(2500);
+// Returns: '2.50s'
+
+TimeUtils.formatDuration(65000);
+// Returns: '1.08m'
+
+TimeUtils.formatDuration(3600000);
+// Returns: '1.00h'
+
+TimeUtils.formatDuration(7200000);
+// Returns: '2.00h'
+```
+
+**Format Rules:**
+- < 1000ms: Shows as milliseconds
+- < 60s: Shows as seconds (2 decimals)
+- < 60m: Shows as minutes (2 decimals)
+- ≥ 60m: Shows as hours (2 decimals)
+
+---
+
+### parseDuration
+
+Parses a duration string to milliseconds.
+
+<ParamField path="duration" type="string" required>
+  Duration string (e.g., '500ms', '2s', '5m')
+</ParamField>
+
+**Returns:** `number` - Duration in milliseconds
+
+**Throws:** `Error` if format is invalid
+
+```typescript
+TimeUtils.parseDuration('500ms');
+// Returns: 500
+
+TimeUtils.parseDuration('2.5s');
+// Returns: 2500
+
+TimeUtils.parseDuration('5m');
+// Returns: 300000
+
+TimeUtils.parseDuration('1.5h');
+// Returns: 5400000
+
+TimeUtils.parseDuration('2d');
+// Returns: 172800000
+
+// Invalid format
+TimeUtils.parseDuration('invalid');
+// Throws: Error: Invalid duration format: invalid
+```
+
+**Supported Units:**
+- `ms` - Milliseconds
+- `s` - Seconds
+- `m` - Minutes
+- `h` - Hours
+- `d` - Days
+
+## Type Definitions
+
+```typescript
+type DebounceOptions = {
+  leading?: boolean;
+  trailing?: boolean;
+  maxWait?: number;
+};
+
+type ThrottleOptions = {
+  leading?: boolean;
+  trailing?: boolean;
+};
+```
+
+## Best Practices
+
+### Debounce vs Throttle
+
+**Use debounce when:**
+- User input needs to settle (search, form validation)
+- Final value matters (auto-save)
+- Action should only happen after activity stops
+
+**Use throttle when:**
+- Continuous events need sampling (scroll, mouse move)
+- Regular updates needed (progress tracking)
+- Rate limiting API calls
+
+### Error Handling with Retry
+
+```typescript
+try {
+  const data = await TimeUtils.retryAsync(
+    async () => {
+      const response = await fetch('/api/data');
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return response.json();
+    },
+    { maxAttempts: 3 }
+  );
+} catch (error) {
+  console.error('Failed after retries:', error);
+  // Handle permanent failure
+}
+```
+
+### Concurrent Operations with Queue
+
+```typescript
+// Limit concurrent downloads
+const downloadQueue = TimeUtils.createQueue(3);
+
+const downloads = fileUrls.map(url =>
+  downloadQueue.add(async () => {
+    console.log('Downloading:', url);
+    const response = await fetch(url);
+    return response.blob();
+  })
+);
+
+const files = await Promise.all(downloads);
+```
+
+### Performance Monitoring
+
+```typescript
+const monitorPerformance = async (name: string, fn: () => Promise<any>) => {
+  const { result, durationMs } = await TimeUtils.measureAsync(fn);
+  
+  console.log(`[${name}] completed in ${TimeUtils.formatDuration(durationMs)}`);
+  
+  if (durationMs > 5000) {
+    console.warn(`[${name}] exceeded threshold`);
+  }
+  
+  return result;
+};
+
+await monitorPerformance('fetchUsers', () => fetchUsers());
+```

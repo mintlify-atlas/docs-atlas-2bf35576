@@ -1,0 +1,443 @@
+---
+title: "URL Builder"
+description: "Fluent API for building URLs with query parameters and fragments"
+---
+
+## Overview
+
+The URL Builder provides a fluent, chainable API for constructing URLs with path segments, query parameters, and hash fragments. It simplifies URL construction and handles proper encoding automatically.
+
+## Class: UrlBuilder
+
+### Constructor
+
+Create a new URL builder instance.
+
+```typescript
+const builder = new UrlBuilder(baseUrl: string)
+```
+
+**Parameters:**
+- `baseUrl` - The base URL to build upon
+
+**Example:**
+```typescript
+import { UrlBuilder } from '@bytekit/utils';
+
+const builder = new UrlBuilder('https://api.example.com');
+```
+
+## Methods
+
+### path
+
+Add path segments to the URL. Automatically handles leading and trailing slashes.
+
+```typescript
+path(...segments: string[]): this
+```
+
+**Parameters:**
+- `segments` - Path segments to append
+
+**Returns:** The builder instance (for chaining)
+
+**Example:**
+```typescript
+import { UrlBuilder } from '@bytekit/utils';
+
+const url = new UrlBuilder('https://api.example.com')
+  .path('/users')
+  .path('123')
+  .build();
+// Result: "https://api.example.com/users/123"
+
+// Multiple segments at once
+const url2 = new UrlBuilder('https://api.example.com')
+  .path('api', 'v1', 'posts', '456')
+  .build();
+// Result: "https://api.example.com/api/v1/posts/456"
+```
+
+### query
+
+Add query parameters to the URL. Automatically filters out `undefined` and `null` values.
+
+```typescript
+query(
+  params: Record<string, string | number | boolean | undefined | null>
+): this
+```
+
+**Parameters:**
+- `params` - Object containing query parameters
+
+**Returns:** The builder instance (for chaining)
+
+**Example:**
+```typescript
+import { UrlBuilder } from '@bytekit/utils';
+
+const url = new UrlBuilder('https://api.example.com')
+  .path('/users')
+  .query({ page: 1, limit: 10 })
+  .query({ sort: 'name' })
+  .build();
+// Result: "https://api.example.com/users?page=1&limit=10&sort=name"
+
+// Undefined and null values are filtered out
+const url2 = new UrlBuilder('https://api.example.com')
+  .path('/search')
+  .query({
+    q: 'javascript',
+    lang: undefined,  // Will be ignored
+    verified: true,
+    category: null    // Will be ignored
+  })
+  .build();
+// Result: "https://api.example.com/search?q=javascript&verified=true"
+```
+
+### queryArray
+
+Add array query parameters. Each array element becomes a separate parameter with the same name.
+
+```typescript
+queryArray(params: Record<string, (string | number | boolean)[]>): this
+```
+
+**Parameters:**
+- `params` - Object containing array-valued query parameters
+
+**Returns:** The builder instance (for chaining)
+
+**Example:**
+```typescript
+import { UrlBuilder } from '@bytekit/utils';
+
+const url = new UrlBuilder('https://api.example.com')
+  .path('/search')
+  .queryArray({ tags: ['javascript', 'typescript'] })
+  .build();
+// Result: "https://api.example.com/search?tags=javascript&tags=typescript"
+
+// Multiple array parameters
+const url2 = new UrlBuilder('https://api.example.com')
+  .path('/products')
+  .queryArray({
+    categories: ['electronics', 'computers'],
+    brands: ['Apple', 'Samsung']
+  })
+  .build();
+// Result: "https://api.example.com/products?categories=electronics&categories=computers&brands=Apple&brands=Samsung"
+```
+
+### hash
+
+Set the URL fragment (hash).
+
+```typescript
+hash(fragment: string): this
+```
+
+**Parameters:**
+- `fragment` - The hash fragment (without the '#' prefix)
+
+**Returns:** The builder instance (for chaining)
+
+**Example:**
+```typescript
+import { UrlBuilder } from '@bytekit/utils';
+
+const url = new UrlBuilder('https://example.com')
+  .path('/docs')
+  .hash('section-1')
+  .build();
+// Result: "https://example.com/docs#section-1"
+```
+
+### build
+
+Build the final URL as a string.
+
+```typescript
+build(): string
+```
+
+**Returns:** The complete URL as a string
+
+**Example:**
+```typescript
+import { UrlBuilder } from '@bytekit/utils';
+
+const url = new UrlBuilder('https://api.example.com')
+  .path('/users')
+  .query({ page: 1 })
+  .build();
+
+console.log(url); // "https://api.example.com/users?page=1"
+```
+
+### toURL
+
+Get the URL as a native URL object.
+
+```typescript
+toURL(): URL
+```
+
+**Returns:** The complete URL as a URL object
+
+**Example:**
+```typescript
+import { UrlBuilder } from '@bytekit/utils';
+
+const urlObj = new UrlBuilder('https://api.example.com')
+  .path('/users')
+  .query({ page: 1 })
+  .toURL();
+
+console.log(urlObj.hostname); // "api.example.com"
+console.log(urlObj.pathname); // "/users"
+```
+
+### getPathname
+
+Get only the pathname portion of the URL.
+
+```typescript
+getPathname(): string
+```
+
+**Returns:** The pathname string
+
+**Example:**
+```typescript
+import { UrlBuilder } from '@bytekit/utils';
+
+const pathname = new UrlBuilder('https://api.example.com')
+  .path('/users', '123')
+  .getPathname();
+
+console.log(pathname); // "/users/123"
+```
+
+### getSearch
+
+Get only the search/query string portion of the URL (including the '?' prefix).
+
+```typescript
+getSearch(): string
+```
+
+**Returns:** The search string
+
+**Example:**
+```typescript
+import { UrlBuilder } from '@bytekit/utils';
+
+const search = new UrlBuilder('https://api.example.com')
+  .query({ page: 1, limit: 10 })
+  .getSearch();
+
+console.log(search); // "?page=1&limit=10"
+```
+
+### getHash
+
+Get only the hash/fragment portion of the URL (including the '#' prefix).
+
+```typescript
+getHash(): string
+```
+
+**Returns:** The hash string
+
+**Example:**
+```typescript
+import { UrlBuilder } from '@bytekit/utils';
+
+const hash = new UrlBuilder('https://example.com')
+  .hash('section-1')
+  .getHash();
+
+console.log(hash); // "#section-1"
+```
+
+### clone
+
+Create a copy of the builder with the same configuration.
+
+```typescript
+clone(): UrlBuilder
+```
+
+**Returns:** A new UrlBuilder instance with the same state
+
+**Example:**
+```typescript
+import { UrlBuilder } from '@bytekit/utils';
+
+const base = new UrlBuilder('https://api.example.com')
+  .path('/api/v1');
+
+// Create variations from the same base
+const usersUrl = base.clone().path('/users').build();
+const postsUrl = base.clone().path('/posts').build();
+
+console.log(usersUrl); // "https://api.example.com/api/v1/users"
+console.log(postsUrl); // "https://api.example.com/api/v1/posts"
+```
+
+## Helper Function: createUrlBuilder
+
+Convenience function to create a new URL builder.
+
+```typescript
+function createUrlBuilder(baseUrl: string): UrlBuilder
+```
+
+**Parameters:**
+- `baseUrl` - The base URL to build upon
+
+**Returns:** A new UrlBuilder instance
+
+**Example:**
+```typescript
+import { createUrlBuilder } from '@bytekit/utils';
+
+const url = createUrlBuilder('https://api.example.com')
+  .path('/users')
+  .query({ page: 1 })
+  .build();
+```
+
+## Complete Examples
+
+### API Client with URL Builder
+
+```typescript
+import { createUrlBuilder } from '@bytekit/utils';
+
+class ApiClient {
+  private baseUrl = 'https://api.example.com';
+  
+  async getUsers(page: number, limit: number, filters?: {
+    role?: string;
+    verified?: boolean;
+  }) {
+    const url = createUrlBuilder(this.baseUrl)
+      .path('/api/v1/users')
+      .query({
+        page,
+        limit,
+        ...filters
+      })
+      .build();
+    
+    const response = await fetch(url);
+    return response.json();
+  }
+  
+  async searchPosts(query: string, tags: string[]) {
+    const url = createUrlBuilder(this.baseUrl)
+      .path('/api/v1/posts/search')
+      .query({ q: query })
+      .queryArray({ tags })
+      .build();
+    
+    const response = await fetch(url);
+    return response.json();
+  }
+}
+
+const client = new ApiClient();
+
+// Fetch users with filters
+const users = await client.getUsers(1, 20, {
+  role: 'admin',
+  verified: true
+});
+
+// Search posts with multiple tags
+const posts = await client.searchPosts('typescript', [
+  'tutorial',
+  'beginner'
+]);
+```
+
+### Dynamic URL Generation
+
+```typescript
+import { UrlBuilder } from '@bytekit/utils';
+
+function buildDashboardUrl(userId: string, options: {
+  tab?: string;
+  filters?: Record<string, string>;
+  dateRange?: string[];
+}) {
+  const builder = new UrlBuilder('https://dashboard.example.com')
+    .path('/users', userId, 'dashboard');
+  
+  if (options.tab) {
+    builder.hash(options.tab);
+  }
+  
+  if (options.filters) {
+    builder.query(options.filters);
+  }
+  
+  if (options.dateRange) {
+    builder.queryArray({ date: options.dateRange });
+  }
+  
+  return builder.build();
+}
+
+const url = buildDashboardUrl('user-123', {
+  tab: 'analytics',
+  filters: { status: 'active' },
+  dateRange: ['2024-01-01', '2024-12-31']
+});
+// Result: "https://dashboard.example.com/users/user-123/dashboard?status=active&date=2024-01-01&date=2024-12-31#analytics"
+```
+
+### Reusable Base URLs
+
+```typescript
+import { UrlBuilder } from '@bytekit/utils';
+
+class ResourceClient {
+  private apiBase: UrlBuilder;
+  
+  constructor(baseUrl: string, apiVersion = 'v1') {
+    this.apiBase = new UrlBuilder(baseUrl)
+      .path('/api', apiVersion);
+  }
+  
+  buildResourceUrl(resource: string, id?: string, action?: string) {
+    const builder = this.apiBase.clone().path(resource);
+    
+    if (id) {
+      builder.path(id);
+    }
+    
+    if (action) {
+      builder.path(action);
+    }
+    
+    return builder.build();
+  }
+}
+
+const client = new ResourceClient('https://api.example.com');
+
+console.log(client.buildResourceUrl('users'));
+// "https://api.example.com/api/v1/users"
+
+console.log(client.buildResourceUrl('users', '123'));
+// "https://api.example.com/api/v1/users/123"
+
+console.log(client.buildResourceUrl('users', '123', 'activate'));
+// "https://api.example.com/api/v1/users/123/activate"
+```

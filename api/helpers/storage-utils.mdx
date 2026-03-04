@@ -1,0 +1,222 @@
+---
+title: StorageManager
+description: Type-safe browser storage with TTL support
+---
+
+## Overview
+
+The `StorageManager` class provides a type-safe wrapper around browser storage APIs (localStorage/sessionStorage) with built-in TTL (time-to-live) support for automatic cache expiration.
+
+## Constructor
+
+```typescript
+new StorageManager(storage?: Storage)
+```
+
+### Parameters
+
+<ParamField path="storage" type="Storage" default="localStorage">
+  The storage backend to use (localStorage or sessionStorage)
+</ParamField>
+
+### Example
+
+```typescript
+import { StorageManager } from 'bytekit/utils/helpers';
+
+// Use localStorage (default)
+const storage = new StorageManager();
+
+// Use sessionStorage
+const sessionStorage = new StorageManager(window.sessionStorage);
+```
+
+## Methods
+
+### set
+
+Store a value with optional TTL.
+
+```typescript
+set<T>(key: string, value: T, ttlMs?: number): void
+```
+
+#### Parameters
+
+<ParamField path="key" type="string" required>
+  The storage key
+</ParamField>
+
+<ParamField path="value" type="T" required>
+  The value to store (will be JSON serialized)
+</ParamField>
+
+<ParamField path="ttlMs" type="number">
+  Time-to-live in milliseconds. If omitted, the value never expires.
+</ParamField>
+
+#### Example
+
+```typescript
+const storage = new StorageManager();
+
+// Store without expiration
+storage.set('user', { id: 1, name: 'Alice' });
+
+// Store with 1 hour TTL
+storage.set('session', { token: 'abc123' }, 3600000);
+
+// Store with 24 hours TTL
+storage.set('cache', { data: [...] }, 24 * 60 * 60 * 1000);
+```
+
+### get
+
+Retrieve a value from storage.
+
+```typescript
+get<T>(key: string): T | null
+```
+
+#### Parameters
+
+<ParamField path="key" type="string" required>
+  The storage key
+</ParamField>
+
+#### Returns
+
+<ResponseField name="value" type="T | null">
+  The stored value, or null if not found or expired
+</ResponseField>
+
+#### Example
+
+```typescript
+interface User {
+  id: number;
+  name: string;
+}
+
+const storage = new StorageManager();
+
+// Type-safe retrieval
+const user = storage.get<User>('user');
+if (user) {
+  console.log(user.name); // TypeScript knows the shape
+}
+
+// Returns null if expired or not found
+const session = storage.get('session');
+if (!session) {
+  console.log('Session expired or not found');
+}
+```
+
+### remove
+
+Remove a value from storage.
+
+```typescript
+remove(key: string): void
+```
+
+#### Parameters
+
+<ParamField path="key" type="string" required>
+  The storage key to remove
+</ParamField>
+
+#### Example
+
+```typescript
+const storage = new StorageManager();
+
+storage.remove('session');
+storage.remove('cache');
+```
+
+### clear
+
+Clear all values from storage.
+
+```typescript
+clear(): void
+```
+
+#### Example
+
+```typescript
+const storage = new StorageManager();
+
+// Clear all stored data
+storage.clear();
+```
+
+## Complete Example
+
+```typescript
+import { StorageManager } from 'bytekit/utils/helpers';
+
+interface UserSession {
+  userId: string;
+  token: string;
+  expiresAt: number;
+}
+
+class SessionManager {
+  private storage = new StorageManager();
+  private readonly SESSION_KEY = 'app:session';
+  private readonly SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+  saveSession(session: UserSession): void {
+    this.storage.set(this.SESSION_KEY, session, this.SESSION_TTL);
+  }
+
+  getSession(): UserSession | null {
+    return this.storage.get<UserSession>(this.SESSION_KEY);
+  }
+
+  clearSession(): void {
+    this.storage.remove(this.SESSION_KEY);
+  }
+
+  isAuthenticated(): boolean {
+    const session = this.getSession();
+    return session !== null && Date.now() < session.expiresAt;
+  }
+}
+
+// Usage
+const sessionManager = new SessionManager();
+
+// Save session
+sessionManager.saveSession({
+  userId: '123',
+  token: 'jwt-token',
+  expiresAt: Date.now() + 3600000
+});
+
+// Check authentication
+if (sessionManager.isAuthenticated()) {
+  const session = sessionManager.getSession();
+  console.log('User is logged in:', session?.userId);
+}
+```
+
+## Best Practices
+
+<Warning>
+  **Storage Limitations**: LocalStorage has a ~5-10MB limit per domain. Always handle potential quota exceeded errors when storing large amounts of data.
+</Warning>
+
+<Tip>
+  **TTL Strategy**: Use appropriate TTL values based on your data:
+  - Session data: 24 hours
+  - Cache data: 1-6 hours
+  - Permanent data: No TTL
+</Tip>
+
+<Info>
+  **Type Safety**: Always specify generic types when using `get()` and `set()` for better TypeScript support and IDE autocompletion.
+</Info>

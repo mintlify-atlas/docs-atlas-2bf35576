@@ -1,0 +1,518 @@
+---
+title: 'Logging and Profiling'
+description: 'Learn how to use ByteKit Logger for structured logging and Profiler for performance measurement'
+---
+
+# Logging and Profiling
+
+ByteKit provides powerful logging and profiling utilities to help you debug and optimize your applications.
+
+## Logger
+
+The `Logger` class provides structured, leveled logging with support for namespaces, custom transports, and contextual information.
+
+### Quick Start
+
+```typescript
+import { createLogger } from 'bytekit';
+
+const logger = createLogger({
+  namespace: 'app',
+  level: 'debug'
+});
+
+logger.debug('Debug message', { userId: 123 });
+logger.info('User logged in', { email: 'user@example.com' });
+logger.warn('Rate limit approaching', { remaining: 10 });
+logger.error('Database connection failed', { host: 'db.example.com' }, error);
+```
+
+### Logger Configuration
+
+```typescript
+interface LoggerOptions {
+  // Namespace for grouping logs (e.g., "api", "auth")
+  namespace?: string;
+  
+  // Log level: "silent" | "error" | "warn" | "info" | "debug"
+  level?: LogLevel;
+  
+  // Custom transport functions
+  transports?: LogTransport[];
+  
+  // Include timestamp in logs (default: true)
+  includeTimestamp?: boolean;
+}
+```
+
+### Log Levels
+
+Log levels control which messages are displayed:
+
+```typescript
+type LogLevel = "silent" | "error" | "warn" | "info" | "debug";
+
+// Priority (low to high):
+// silent (0) - No logs
+// error (1)  - Only errors
+// warn (2)   - Warnings and errors
+// info (3)   - Info, warnings, and errors
+// debug (4)  - Everything
+```
+
+**Default Levels:**
+- Production: `"info"`
+- Development: `"debug"`
+
+### Creating Loggers
+
+```typescript
+// Basic logger
+const logger = createLogger();
+
+// Logger with namespace
+const apiLogger = createLogger({
+  namespace: 'api',
+  level: 'debug'
+});
+
+// Silent logger (no output)
+const silentLogger = Logger.silent();
+
+// Production logger
+const prodLogger = createLogger({
+  level: 'error',
+  includeTimestamp: true
+});
+```
+
+### Logging Methods
+
+```typescript
+// Debug: Detailed information for debugging
+logger.debug('Cache hit', { key: 'user:123', ttl: 3600 });
+
+// Info: General informational messages
+logger.info('Server started', { port: 3000, env: 'production' });
+
+// Warn: Warning messages
+logger.warn('Deprecated API usage', { endpoint: '/old-api', alternative: '/v2/api' });
+
+// Error: Error messages with optional Error object
+logger.error('Payment failed', { orderId: '12345', amount: 99.99 }, error);
+```
+
+### Log Entry Structure
+
+```typescript
+interface LogEntry<TContext extends Record<string, unknown>> {
+  level: LogLevel;
+  message: string;
+  namespace?: string;
+  timestamp: Date;
+  context?: TContext;
+  error?: Error;
+}
+```
+
+### Child Loggers
+
+Create child loggers with nested namespaces:
+
+```typescript
+const appLogger = createLogger({ namespace: 'app' });
+
+// Creates logger with namespace "app:database"
+const dbLogger = appLogger.child('database');
+dbLogger.info('Connected');
+// Output: INFO [app:database] Connected
+
+// Creates logger with namespace "app:api"
+const apiLogger = appLogger.child('api');
+apiLogger.debug('Request received');
+// Output: DEBUG [app:api] Request received
+
+// Nested children: "app:api:auth"
+const authLogger = apiLogger.child('auth');
+authLogger.info('User authenticated');
+// Output: INFO [app:api:auth] User authenticated
+```
+
+### Dynamic Log Levels
+
+```typescript
+const logger = createLogger({ level: 'info' });
+
+logger.debug('This will not show');
+
+// Change level at runtime
+logger.setLevel('debug');
+
+logger.debug('Now this will show');
+```
+
+### Custom Transports
+
+Transports define where logs are sent:
+
+```typescript
+type LogTransport = (entry: LogEntry) => void | Promise<void>;
+
+// File transport
+const fileTransport: LogTransport = async (entry) => {
+  const logLine = `${entry.timestamp.toISOString()} ${entry.level.toUpperCase()} ${entry.message}\n`;
+  await fs.appendFile('app.log', logLine);
+};
+
+// HTTP transport (send to logging service)
+const httpTransport: LogTransport = async (entry) => {
+  await fetch('https://logs.example.com/ingest', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry)
+  });
+};
+
+// Logger with multiple transports
+const logger = createLogger({
+  transports: [fileTransport, httpTransport]
+});
+```
+
+### Built-in Transports
+
+ByteKit includes console transports optimized for Node.js and browsers:
+
+```typescript
+import { consoleTransportNode, consoleTransportBrowser } from 'bytekit';
+
+// Node.js transport (with ANSI colors)
+const logger = createLogger({
+  transports: [consoleTransportNode({ includeTimestamp: true })]
+});
+
+// Browser transport (with CSS colors)
+const browserLogger = createLogger({
+  transports: [consoleTransportBrowser({ includeTimestamp: true })]
+});
+```
+
+**Node.js output:**
+```
+2024-03-15T10:30:45.123Z ERROR [api] Request failed { status: 500 }
+```
+
+**Browser output:**
+```
+%c2024-03-15T10:30:45.123Z ERROR [api] Request failed color: red
+```
+
+### Integration with ApiClient
+
+```typescript
+import { createApiClient, createLogger } from 'bytekit';
+
+const logger = createLogger({
+  namespace: 'api',
+  level: 'debug'
+});
+
+const client = createApiClient({
+  baseUrl: 'https://api.example.com',
+  logger,
+  logHeaders: true
+});
+
+// Automatically logs:
+// - Request method, URL, headers, body
+// - Response status, data
+// - Errors with full details
+```
+
+### TypeScript Context Types
+
+```typescript
+interface UserContext {
+  userId: string;
+  email: string;
+  role: string;
+}
+
+const logger = createLogger<UserContext>({
+  namespace: 'auth'
+});
+
+// Type-safe context
+logger.info('User logged in', {
+  userId: '123',
+  email: 'user@example.com',
+  role: 'admin'
+});
+```
+
+## Profiler
+
+The `Profiler` class measures execution time of code blocks:
+
+### Quick Start
+
+```typescript
+import { Profiler } from 'bytekit';
+
+const profiler = new Profiler('my-operation');
+
+profiler.start('database-query');
+await db.query('SELECT * FROM users');
+profiler.end('database-query');
+
+profiler.start('data-processing');
+processData(results);
+profiler.end('data-processing');
+
+const results = profiler.summary();
+console.log(results);
+// {
+//   "database-query": 45.2,
+//   "data-processing": 12.8
+// }
+```
+
+### Creating a Profiler
+
+```typescript
+// Without namespace
+const profiler = new Profiler();
+
+// With namespace (for grouping results)
+const apiProfiler = new Profiler('api');
+const dbProfiler = new Profiler('database');
+```
+
+### Measuring Operations
+
+```typescript
+const profiler = new Profiler('request');
+
+// Start timing
+profiler.start('validation');
+validateRequest(data);
+profiler.end('validation');
+
+profiler.start('database');
+const user = await db.users.findOne({ id });
+profiler.end('database');
+
+profiler.start('serialization');
+const response = JSON.stringify(user);
+profiler.end('serialization');
+
+// Get results
+const timings = profiler.summary();
+console.log(timings);
+// {
+//   "validation": 1.2,
+//   "database": 23.5,
+//   "serialization": 0.8
+// }
+```
+
+### Nested Measurements
+
+```typescript
+const profiler = new Profiler();
+
+profiler.start('total-request');
+
+profiler.start('auth');
+authenticateUser(token);
+profiler.end('auth');
+
+profiler.start('business-logic');
+processBusinessLogic();
+profiler.end('business-logic');
+
+profiler.end('total-request');
+
+const results = profiler.summary();
+// {
+//   "auth": 5.2,
+//   "business-logic": 45.8,
+//   "total-request": 51.0
+// }
+```
+
+### Namespaced Results
+
+```typescript
+const apiProfiler = new Profiler('api');
+const dbProfiler = new Profiler('db');
+
+apiProfiler.start('request');
+// ... api work
+apiProfiler.end('request');
+
+dbProfiler.start('query');
+// ... database work
+dbProfiler.end('query');
+
+apiProfiler.summary();
+// { "api": { "request": 23.5 } }
+
+dbProfiler.summary();
+// { "db": { "query": 45.2 } }
+```
+
+### Performance Monitoring Pattern
+
+```typescript
+class UserService {
+  private profiler = new Profiler('UserService');
+  
+  async getUser(id: string) {
+    this.profiler.start('getUser');
+    
+    this.profiler.start('cache-check');
+    const cached = await cache.get(`user:${id}`);
+    this.profiler.end('cache-check');
+    
+    if (cached) {
+      this.profiler.end('getUser');
+      return cached;
+    }
+    
+    this.profiler.start('db-query');
+    const user = await db.users.findOne({ id });
+    this.profiler.end('db-query');
+    
+    this.profiler.start('cache-set');
+    await cache.set(`user:${id}`, user, 3600);
+    this.profiler.end('cache-set');
+    
+    this.profiler.end('getUser');
+    
+    // Log performance data
+    const timings = this.profiler.summary();
+    logger.debug('User fetch timings', timings);
+    
+    return user;
+  }
+}
+```
+
+### Integration with Logger
+
+```typescript
+import { createLogger, Profiler } from 'bytekit';
+
+const logger = createLogger({ namespace: 'perf' });
+const profiler = new Profiler('api-request');
+
+async function handleRequest(req: Request) {
+  profiler.start('total');
+  
+  profiler.start('parse');
+  const body = await req.json();
+  profiler.end('parse');
+  
+  profiler.start('process');
+  const result = await processRequest(body);
+  profiler.end('process');
+  
+  profiler.end('total');
+  
+  const timings = profiler.summary();
+  
+  // Log performance metrics
+  logger.info('Request completed', {
+    method: req.method,
+    path: req.url,
+    timings
+  });
+  
+  return result;
+}
+```
+
+## Best Practices
+
+### 1. Use Appropriate Log Levels
+
+```typescript
+// Debug: Detailed diagnostics
+logger.debug('Cache miss', { key, ttl });
+
+// Info: Important events
+logger.info('User registered', { userId, email });
+
+// Warn: Recoverable issues
+logger.warn('Retry attempt 3 of 5', { operation });
+
+// Error: Failures
+logger.error('Payment processing failed', { orderId }, error);
+```
+
+### 2. Include Contextual Information
+
+```typescript
+// Good: Rich context
+logger.error('API request failed', {
+  url: '/api/users',
+  method: 'POST',
+  status: 500,
+  duration: 234,
+  userId: '123'
+}, error);
+
+// Bad: Minimal context
+logger.error('Request failed', error);
+```
+
+### 3. Use Namespaces for Organization
+
+```typescript
+const dbLogger = createLogger({ namespace: 'db' });
+const apiLogger = createLogger({ namespace: 'api' });
+const authLogger = createLogger({ namespace: 'auth' });
+
+// Easy to filter logs by component
+dbLogger.info('Query executed');
+apiLogger.info('Request received');
+authLogger.info('User authenticated');
+```
+
+### 4. Profile Critical Operations
+
+```typescript
+const profiler = new Profiler('critical-path');
+
+profiler.start('expensive-operation');
+try {
+  await expensiveOperation();
+} finally {
+  profiler.end('expensive-operation');
+  
+  const timings = profiler.summary();
+  if (timings['expensive-operation'] > 1000) {
+    logger.warn('Slow operation detected', { timings });
+  }
+}
+```
+
+### 5. Avoid Logging Sensitive Data
+
+```typescript
+// Good: Redact sensitive fields
+logger.info('User login', {
+  email: user.email,
+  userId: user.id
+  // Don't log: password, tokens, credit cards
+});
+
+// Bad: Logging everything
+logger.info('User login', user);  // May contain sensitive data
+```
+
+## Related
+
+- [ApiClient Guide](/guides/api-client)
+- [Best Practices](/guides/best-practices)

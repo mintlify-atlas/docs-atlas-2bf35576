@@ -1,0 +1,431 @@
+---
+title: PollingHelper
+description: Intelligent polling with exponential backoff, jitter, and stop conditions
+---
+
+## Overview
+
+The `PollingHelper` class provides a robust polling mechanism with features like exponential backoff, jitter, timeout controls, and stop conditions. Perfect for polling APIs, checking job status, waiting for async operations, and implementing retry logic.
+
+## Import
+
+```typescript
+import { PollingHelper, createPoller } from 'bytekit';
+```
+
+## Usage
+
+### Basic Polling
+
+```typescript
+const poller = new PollingHelper(
+  async () => {
+    const response = await fetch('/api/status');
+    return response.json();
+  },
+  {
+    interval: 2000, // Poll every 2 seconds
+    maxAttempts: 10,
+    stopCondition: (result) => result.status === 'complete'
+  }
+);
+
+const result = await poller.start();
+if (result.success) {
+  console.log('Job completed:', result.result);
+} else {
+  console.error('Polling failed:', result.error);
+}
+```
+
+### Exponential Backoff
+
+```typescript
+const result = await PollingHelper.pollWithBackoff(
+  async () => checkJobStatus(jobId),
+  {
+    interval: 1000, // Start at 1 second
+    backoffMultiplier: 2, // Double interval each time
+    maxBackoffInterval: 30000, // Cap at 30 seconds
+    maxAttempts: 10,
+    stopCondition: (status) => status.done
+  }
+);
+// Polling intervals: 1s, 2s, 4s, 8s, 16s, 30s, 30s...
+```
+
+### With Jitter
+
+```typescript
+const poller = new PollingHelper(fetchData, {
+  interval: 5000,
+  jitter: true, // Add ±10% random jitter
+  maxAttempts: 20
+});
+
+// Or custom jitter percentage
+const poller2 = new PollingHelper(fetchData, {
+  interval: 5000,
+  jitter: 25, // ±25% jitter
+  maxAttempts: 20
+});
+```
+
+### With Attempt Timeout
+
+```typescript
+const poller = new PollingHelper(
+  async () => {
+    // Each attempt times out after 5 seconds
+    return await fetchWithLongOperation();
+  },
+  {
+    interval: 10000,
+    attemptTimeout: 5000, // 5 second timeout per attempt
+    maxAttempts: 5,
+    retryOnError: true
+  }
+);
+
+const result = await poller.start();
+```
+
+### Abort Polling
+
+```typescript
+const poller = new PollingHelper(fetchData, {
+  interval: 2000,
+  maxDuration: 60000 // 1 minute max
+});
+
+const resultPromise = poller.startWithAbort();
+
+// Abort from another location
+setTimeout(() => {
+  poller.abort();
+}, 10000); // Abort after 10 seconds
+
+const result = await resultPromise;
+if (!result.success) {
+  console.log('Polling aborted');
+}
+```
+
+### Callbacks and Monitoring
+
+```typescript
+const poller = new PollingHelper(checkStatus, {
+  interval: 3000,
+  maxAttempts: 10,
+  onAttempt: (attempt, result, error) => {
+    if (error) {
+      console.log(`Attempt ${attempt} failed:`, error);
+    } else {
+      console.log(`Attempt ${attempt} result:`, result);
+    }
+  },
+  onSuccess: (result, attempts) => {
+    console.log(`Success after ${attempts} attempts:`, result);
+  },
+  onError: (error, attempts) => {
+    console.error(`Failed after ${attempts} attempts:`, error);
+  }
+});
+
+const result = await poller.start();
+```
+
+### Stop on Condition
+
+```typescript
+interface JobStatus {
+  id: string;
+  status: 'pending' | 'processing' | 'complete' | 'failed';
+  progress: number;
+}
+
+const result = await PollingHelper.poll<JobStatus>(
+  async () => await getJobStatus(jobId),
+  {
+    interval: 2000,
+    maxAttempts: 30,
+    stopCondition: (status) => {
+      // Stop when complete or failed
+      return status.status === 'complete' || status.status === 'failed';
+    }
+  }
+);
+
+if (result.success && result.result?.status === 'complete') {
+  console.log('Job completed successfully');
+}
+```
+
+## API Reference
+
+### Constructor
+
+<ParamField path="fn" type="() => Promise<T>" required>
+  Async function to poll
+</ParamField>
+
+<ParamField path="options" type="PollingOptions<T>" default="{}">
+  Polling configuration options
+  
+  <Expandable title="properties">
+    <ParamField path="interval" type="number" default="1000">
+      Polling interval in milliseconds
+    </ParamField>
+    <ParamField path="maxAttempts" type="number" default="Infinity">
+      Maximum number of polling attempts
+    </ParamField>
+    <ParamField path="maxDuration" type="number" default="Infinity">
+      Maximum polling duration in milliseconds
+    </ParamField>
+    <ParamField path="backoffMultiplier" type="number" default="1">
+      Multiplier for exponential backoff (1 = no backoff)
+    </ParamField>
+    <ParamField path="maxBackoffInterval" type="number" default="30000">
+      Maximum interval for backoff in milliseconds
+    </ParamField>
+    <ParamField path="stopCondition" type="(result: T) => boolean">
+      Function to determine if polling should stop
+    </ParamField>
+    <ParamField path="jitter" type="boolean | number" default="false">
+      Add random jitter (true = 10%, number = custom %)
+    </ParamField>
+    <ParamField path="attemptTimeout" type="number" optional>
+      Timeout for each individual attempt in milliseconds
+    </ParamField>
+    <ParamField path="retryOnError" type="boolean" default="true">
+      Whether to continue polling on errors
+    </ParamField>
+    <ParamField path="exponentialBase" type="number" default="2">
+      Base for exponential backoff calculation
+    </ParamField>
+    <ParamField path="onAttempt" type="(attempt: number, result?: T, error?: Error) => void">
+      Callback for each polling attempt
+    </ParamField>
+    <ParamField path="onSuccess" type="(result: T, attempts: number) => void">
+      Callback on successful completion
+    </ParamField>
+    <ParamField path="onError" type="(error: Error, attempts: number) => void">
+      Callback on error
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Methods
+
+#### start
+
+Start polling and return result when complete.
+
+<ResponseField name="return" type="Promise<PollingResult<T>>">
+  Promise resolving to polling result
+  
+  ```typescript
+  interface PollingResult<T> {
+    success: boolean;
+    result?: T;
+    error?: Error;
+    attempts: number;
+    duration: number;
+    metrics?: {
+      minResponseTime: number;
+      maxResponseTime: number;
+      avgResponseTime: number;
+    };
+  }
+  ```
+</ResponseField>
+
+```typescript
+const result = await poller.start();
+if (result.success) {
+  console.log(`Completed in ${result.duration}ms after ${result.attempts} attempts`);
+}
+```
+
+#### startWithAbort
+
+Start polling with ability to abort.
+
+<ResponseField name="return" type="Promise<PollingResult<T>>">
+  Promise resolving to polling result
+</ResponseField>
+
+```typescript
+const resultPromise = poller.startWithAbort();
+// Later: poller.abort();
+const result = await resultPromise;
+```
+
+#### abort
+
+Abort ongoing polling operation.
+
+```typescript
+poller.abort();
+```
+
+### Static Methods
+
+#### poll
+
+Convenience method for one-off polling.
+
+<ParamField path="fn" type="() => Promise<T>" required>
+  Function to poll
+</ParamField>
+
+<ParamField path="options" type="PollingOptions<T>" default="{}">
+  Polling options
+</ParamField>
+
+<ResponseField name="return" type="Promise<PollingResult<T>>">
+  Polling result
+</ResponseField>
+
+```typescript
+const result = await PollingHelper.poll(
+  async () => checkStatus(),
+  { interval: 2000, maxAttempts: 10 }
+);
+```
+
+#### pollWithBackoff
+
+Convenience method for polling with exponential backoff.
+
+<ParamField path="fn" type="() => Promise<T>" required>
+  Function to poll
+</ParamField>
+
+<ParamField path="options" type="PollingOptions<T>" default="{}">
+  Polling options (backoffMultiplier defaults to 2)
+</ParamField>
+
+<ResponseField name="return" type="Promise<PollingResult<T>>">
+  Polling result
+</ResponseField>
+
+#### pollWithLinearBackoff
+
+Convenience method for polling with linear backoff.
+
+<ParamField path="fn" type="() => Promise<T>" required>
+  Function to poll
+</ParamField>
+
+<ParamField path="options" type="PollingOptions<T>" default="{}">
+  Polling options (backoffMultiplier defaults to 1.5)
+</ParamField>
+
+<ResponseField name="return" type="Promise<PollingResult<T>>">
+  Polling result
+</ResponseField>
+
+## Types
+
+### PollingOptions
+
+```typescript
+interface PollingOptions<T = unknown> {
+  interval?: number;
+  maxAttempts?: number;
+  maxDuration?: number;
+  backoffMultiplier?: number;
+  maxBackoffInterval?: number;
+  stopCondition?: (result: T) => boolean;
+  onAttempt?: (attempt: number, result?: T, error?: Error) => void;
+  onSuccess?: (result: T, attempts: number) => void;
+  onError?: (error: Error, attempts: number) => void;
+  jitter?: boolean | number;
+  attemptTimeout?: number;
+  retryOnError?: boolean;
+  exponentialBase?: number;
+}
+```
+
+### PollingResult
+
+```typescript
+interface PollingResult<T = unknown> {
+  success: boolean;
+  result?: T;
+  error?: Error;
+  attempts: number;
+  duration: number;
+  metrics?: {
+    minResponseTime: number;
+    maxResponseTime: number;
+    avgResponseTime: number;
+  };
+}
+```
+
+## Use Cases
+
+### API Job Status
+
+```typescript
+async function waitForJob(jobId: string) {
+  const result = await PollingHelper.pollWithBackoff(
+    async () => {
+      const response = await fetch(`/api/jobs/${jobId}`);
+      return response.json();
+    },
+    {
+      interval: 1000,
+      maxAttempts: 20,
+      stopCondition: (job) => job.status !== 'pending'
+    }
+  );
+  
+  return result.result;
+}
+```
+
+### Health Check
+
+```typescript
+const healthCheck = await PollingHelper.poll(
+  async () => {
+    const response = await fetch('/health');
+    if (!response.ok) throw new Error('Service unhealthy');
+    return true;
+  },
+  {
+    interval: 5000,
+    maxAttempts: 12, // 1 minute total
+    retryOnError: true
+  }
+);
+```
+
+### Resource Availability
+
+```typescript
+const resourceReady = await PollingHelper.poll(
+  async () => await checkResourceExists(resourceId),
+  {
+    interval: 2000,
+    maxDuration: 30000, // 30 second timeout
+    stopCondition: (exists) => exists === true
+  }
+);
+```
+
+## Best Practices
+
+1. **Always set maxAttempts or maxDuration** to prevent infinite polling
+2. **Use exponential backoff** for external APIs to reduce load
+3. **Add jitter** when polling shared resources to avoid thundering herd
+4. **Set attemptTimeout** for long-running operations
+5. **Use stopCondition** for early exit on success conditions
+
+## Related
+
+- [HTTPClient](/api/networking/http-client) - For HTTP requests
+- [RetryHelper](/api/reliability/retry-helper) - For retry logic

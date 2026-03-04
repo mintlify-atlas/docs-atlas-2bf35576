@@ -1,0 +1,399 @@
+---
+title: 'Swagger Integration'
+description: 'Generate TypeScript types from OpenAPI/Swagger specifications'
+---
+
+The `--swagger` flag allows you to generate comprehensive TypeScript type definitions from OpenAPI/Swagger specifications. This is ideal for working with well-documented APIs.
+
+## Basic Usage
+
+```bash
+bytekit --swagger https://api.example.com/swagger.json
+```
+
+This command:
+1. Fetches the Swagger/OpenAPI specification
+2. Extracts all schema definitions
+3. Generates TypeScript interfaces
+4. Saves to `src/types/api-docs.ts`
+
+## Supported Formats
+
+ByteKit supports multiple OpenAPI/Swagger formats:
+
+- **OpenAPI 3.0+** with `components.schemas`
+- **Swagger 2.0** with `definitions`
+- **JSON and YAML** formats
+
+## Automatic Spec Discovery
+
+If you provide a Swagger UI URL (HTML page), ByteKit automatically tries to find the JSON specification:
+
+```bash
+bytekit --swagger https://api.example.com/docs
+```
+
+**Discovery process:**
+```
+📖 Attempting to resolve Swagger/OpenAPI spec from https://api.example.com/docs...
+🔍 URL looks like a documentation page, trying to find spec JSON...
+✨ Found spec at: https://api.example.com/openapi.json
+```
+
+**Common paths tried:**
+- `/openapi.json`
+- `/swagger.json`
+- `/v2/api-docs`
+- `/api-docs`
+
+## Example with Public APIs
+
+### Petstore API
+
+Generate types from the classic Swagger Petstore:
+
+```bash
+bytekit --swagger https://petstore.swagger.io/v2/swagger.json
+```
+
+**Output:**
+```
+📖 Attempting to resolve Swagger/OpenAPI spec from https://petstore.swagger.io/v2/swagger.json...
+✅ Successfully generated 6 types!
+📝 Output: /home/user/project/src/types/api-docs.ts
+```
+
+### JSONPlaceholder OpenAPI
+
+Generate types from a RESTful API spec:
+
+```bash
+bytekit --swagger https://jsonplaceholder.typicode.com/openapi.json
+```
+
+## Generated Output
+
+ByteKit generates clean, well-formatted TypeScript interfaces:
+
+```typescript
+/**
+ * Auto-generated types from Swagger/OpenAPI
+ * Generated at 2026-03-04T10:30:00.000Z
+ */
+
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+}
+
+export interface Pet {
+  id: number;
+  name: string;
+  category?: Category;
+  photoUrls: string[];
+  tags?: Tag[];
+  status: 'available' | 'pending' | 'sold';
+}
+
+export interface Category {
+  id: number;
+  name: string;
+}
+
+export interface Tag {
+  id: number;
+  name: string;
+}
+
+export interface ApiResponse {
+  code: number;
+  type: string;
+  message: string;
+}
+
+export interface Order {
+  id: number;
+  petId: number;
+  quantity: number;
+  shipDate?: string | Date;
+  status: 'placed' | 'approved' | 'delivered';
+  complete?: boolean;
+}
+```
+
+## Type Mapping
+
+ByteKit maps OpenAPI types to TypeScript types:
+
+| OpenAPI Type | TypeScript Type |
+|--------------|----------------|
+| `string` | `string` |
+| `integer` | `number` |
+| `number` | `number` |
+| `boolean` | `boolean` |
+| `array` | `T[]` |
+| `object` | `Record<string, any>` |
+| `string` (format: `date`) | `string \| Date` |
+| `string` (format: `date-time`) | `string \| Date` |
+
+## Schema Features
+
+### Required vs Optional Properties
+
+ByteKit respects the `required` field in schemas:
+
+```yaml
+User:
+  type: object
+  required:
+    - id
+    - username
+  properties:
+    id:
+      type: integer
+    username:
+      type: string
+    email:
+      type: string
+```
+
+**Generated:**
+```typescript
+export interface User {
+  id: number;        // required
+  username: string;  // required
+  email?: string;    // optional
+}
+```
+
+### Enum Types
+
+Enums are converted to TypeScript union types:
+
+```yaml
+Pet:
+  properties:
+    status:
+      type: string
+      enum: [available, pending, sold]
+```
+
+**Generated:**
+```typescript
+export interface Pet {
+  status: 'available' | 'pending' | 'sold';
+}
+```
+
+### Nested Objects
+
+Complex nested structures are preserved:
+
+```yaml
+User:
+  properties:
+    address:
+      type: object
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+```
+
+**Generated:**
+```typescript
+export interface User {
+  address?: {
+    street?: string;
+    city?: string;
+  };
+}
+```
+
+### Schema References
+
+ByteKit resolves `$ref` references:
+
+```yaml
+Pet:
+  properties:
+    category:
+      $ref: '#/components/schemas/Category'
+```
+
+**Generated:**
+```typescript
+export interface Pet {
+  category?: Category;
+}
+
+export interface Category {
+  id: number;
+  name: string;
+}
+```
+
+### Arrays
+
+Array items are typed correctly:
+
+```yaml
+User:
+  properties:
+    roles:
+      type: array
+      items:
+        type: string
+```
+
+**Generated:**
+```typescript
+export interface User {
+  roles?: string[];
+}
+```
+
+### Additional Properties
+
+Dynamic object properties are handled:
+
+```yaml
+Config:
+  type: object
+  additionalProperties:
+    type: string
+```
+
+**Generated:**
+```typescript
+export type Config = Record<string, string>;
+```
+
+### OneOf / AnyOf / AllOf
+
+ByteKit supports schema composition:
+
+**OneOf (union):**
+```typescript
+export type Pet = (Cat | Dog);
+```
+
+**AnyOf (union):**
+```typescript
+export type Response = (SuccessResponse | ErrorResponse);
+```
+
+**AllOf (intersection):**
+```typescript
+export type Employee = (Person & Worker);
+```
+
+## Output File
+
+All generated types are saved to a single file:
+
+```
+src/types/api-docs.ts
+```
+
+The file includes:
+- Auto-generation header
+- Timestamp
+- All exported interfaces and types
+
+```typescript
+/**
+ * Auto-generated types from Swagger/OpenAPI
+ * Generated at 2026-03-04T10:30:00.000Z
+ */
+
+export interface User { /* ... */ }
+export interface Pet { /* ... */ }
+export interface Order { /* ... */ }
+// ... all other schemas
+```
+
+## Real-World Examples
+
+### Stripe API
+
+```bash
+bytekit --swagger https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json
+```
+
+### GitHub API
+
+```bash
+bytekit --swagger https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json
+```
+
+### Custom API
+
+```bash
+bytekit --swagger https://your-api.com/v1/swagger.json
+```
+
+## Error Handling
+
+ByteKit provides helpful error messages:
+
+**HTTP Error:**
+```bash
+bytekit --swagger https://api.example.com/swagger.json
+# ❌ Swagger Error: HTTP 404: Not Found
+```
+
+**No Schemas Found:**
+```bash
+bytekit --swagger https://api.example.com/empty-spec.json
+# ⚠️ No schemas or definitions found in the specification.
+```
+
+**Auto-Discovery Failed:**
+```bash
+bytekit --swagger https://api.example.com/docs
+# ❌ Swagger Error: Could not automatically find the OpenAPI/Swagger JSON 
+# from the documentation page. Please provide the direct JSON URL.
+```
+
+## Tips and Best Practices
+
+<Tip>
+**Direct JSON URLs work best:** If possible, provide the direct URL to the `swagger.json` or `openapi.json` file rather than the HTML documentation page.
+</Tip>
+
+<Info>
+ByteKit sanitizes schema names by removing invalid characters, ensuring valid TypeScript identifiers.
+</Info>
+
+<Warning>
+If the spec contains no schemas or definitions, no types will be generated. Ensure your OpenAPI spec includes schema definitions.
+</Warning>
+
+## Comparison: Type Generation vs Swagger
+
+| Feature | `--type` | `--swagger` |
+|---------|----------|-------------|
+| **Source** | Live API response | OpenAPI/Swagger spec |
+| **Coverage** | Single endpoint | All defined schemas |
+| **Output** | `src/types/{endpoint}.ts` | `src/types/api-docs.ts` |
+| **Best for** | Quick prototyping | Complete API integration |
+| **Documentation** | Inferred from data | From spec definitions |
+| **Enum support** | No | Yes |
+| **Required fields** | Inferred from null | Explicit in spec |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Type Generation" icon="code" href="/cli/type-generation">
+    Generate types from individual API endpoints
+  </Card>
+  <Card title="CLI Overview" icon="terminal" href="/cli/overview">
+    Learn about all CLI commands and options
+  </Card>
+</CardGroup>

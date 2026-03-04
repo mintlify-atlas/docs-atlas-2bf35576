@@ -1,0 +1,518 @@
+---
+title: 'Caching Strategies'
+description: 'Implement effective caching strategies with RequestCache and QueryClient'
+---
+
+# Caching Strategies
+
+Optimize your application performance with ByteKit's powerful caching solutions: `RequestCache` for HTTP caching and `QueryClient` for React Query-like state management.
+
+## RequestCache Basics
+
+### Simple Cache Setup
+
+```typescript
+import { RequestCache } from '@bytekit/core';
+
+const cache = new RequestCache({
+  ttl: 5 * 60 * 1000,              // 5 minutes default TTL
+  staleWhileRevalidate: 60 * 1000, // 1 minute stale-while-revalidate
+});
+
+// Cache a response
+const data = { id: 1, name: 'John' };
+cache.set('/users/1', data);
+
+// Retrieve from cache
+const cached = cache.get('/users/1');
+if (cached) {
+  console.log('Cache hit:', cached);
+} else {
+  console.log('Cache miss');
+}
+```
+
+### Cache with API Client
+
+```typescript
+import { ApiClient, RequestCache } from '@bytekit/core';
+
+class CachedApiClient {
+  private client: ApiClient;
+  private cache: RequestCache;
+
+  constructor(baseUrl: string) {
+    this.client = new ApiClient({ baseUrl });
+    this.cache = new RequestCache({
+      ttl: 5 * 60 * 1000,
+      staleWhileRevalidate: 60 * 1000,
+    });
+  }
+
+  async get<T>(url: string, options?: any): Promise<T> {
+    // Check cache first
+    const cached = this.cache.get<T>(url, options?.searchParams);
+    
+    if (cached !== null) {
+      console.log('Returning cached data');
+      
+      // If stale, refetch in background
+      if (this.cache.isStale(url, options?.searchParams)) {
+        console.log('Data is stale, refreshing in background');
+        this.refreshInBackground(url, options);
+      }
+      
+      return cached;
+    }
+
+    // Fetch from API
+    const data = await this.client.get<T>(url, options);
+    
+    // Store in cache
+    this.cache.set(url, data, undefined, options?.searchParams);
+    
+    return data;
+  }
+
+  private async refreshInBackground<T>(url: string, options?: any): Promise<void> {
+    try {
+      const fresh = await this.client.get<T>(url, options);
+      this.cache.set(url, fresh, undefined, options?.searchParams);
+    } catch (error) {
+      console.error('Background refresh failed:', error);
+    }
+  }
+}
+
+// Usage
+const api = new CachedApiClient('https://api.example.com');
+const user = await api.get('/users/123'); // Fetches from API
+const cachedUser = await api.get('/users/123'); // Returns from cache
+```
+
+## Cache Invalidation
+
+### Manual Invalidation
+
+```typescript
+const cache = new RequestCache();
+
+// Set data
+cache.set('/users/123', userData);
+
+// Invalidate single entry
+cache.invalidate('/users/123');
+
+// Invalidate by pattern
+cache.invalidatePattern('/users/*'); // Invalidates all user endpoints
+cache.invalidatePattern('/api/v1/*'); // Invalidates all v1 API calls
+
+// Clear all cache
+cache.clear();
+```
+
+### Invalidation on Mutations
+
+```typescript
+class UserService {
+  private client: ApiClient;
+  private cache: RequestCache;
+
+  constructor(baseUrl: string) {
+    this.client = new ApiClient({ baseUrl });
+    this.cache = new RequestCache();
+  }
+
+  async getUser(id: string) {
+    const cached = this.cache.get(`/users/${id}`);
+    if (cached) return cached;
+
+    const user = await this.client.get(`/users/${id}`);
+    this.cache.set(`/users/${id}`, user);
+    return user;
+  }
+
+  async updateUser(id: string, data: any) {
+    const updated = await this.client.put(`/users/${id}`, data);
+    
+    // Invalidate affected caches
+    this.cache.invalidate(`/users/${id}`);
+    this.cache.invalidatePattern('/users*'); // Also invalidate list
+    
+    return updated;
+  }
+
+  async deleteUser(id: string) {
+    await this.client.delete(`/users/${id}`);
+    
+    // Invalidate all user-related caches
+    this.cache.invalidatePattern('/users*');
+  }
+}
+```
+
+## QueryClient for State Management
+
+### Basic QueryClient Setup
+
+```typescript
+import { ApiClient, QueryClient } from '@bytekit/core';
+
+const apiClient = new ApiClient({
+  baseUrl: 'https://api.example.com',
+});
+
+const queryClient = new QueryClient(apiClient, {
+  defaultStaleTime: 60 * 1000,      // Data fresh for 1 minute
+  defaultCacheTime: 5 * 60 * 1000,  // Keep in cache for 5 minutes
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
+  enableDeduplication: true,
+});
+```
+
+### Query with Caching
+
+```typescript
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+// First call - fetches from API
+const user1 = await queryClient.query<User>({
+  queryKey: ['user', '123'],
+  path: '/users/123',
+  staleTime: 5 * 60 * 1000, // Fresh for 5 minutes
+});
+
+// Second call within 5 minutes - returns from cache
+const user2 = await queryClient.query<User>({
+  queryKey: ['user', '123'],
+  path: '/users/123',
+});
+
+console.log(user1 === user2); // true (same cached instance)
+```
+
+### Query with Callbacks
+
+```typescript
+const user = await queryClient.query<User>({
+  queryKey: ['user', userId],
+  path: `/users/${userId}`,
+  callbacks: {
+    onStart: (context) => {
+      console.log('Loading user...', context);
+    },
+    onSuccess: (data, context) => {
+      console.log('User loaded:', data);
+    },
+    onError: (error, context) => {
+      console.error('Failed to load user:', error);
+    },
+    onSettled: (data, error, context) => {
+      console.log('Request settled');
+    },
+  },
+});
+```
+
+### Mutations with Cache Invalidation
+
+```typescript
+// Update user and invalidate related queries
+const updatedUser = await queryClient.mutate<User>({
+  path: '/users/123',
+  method: 'PATCH',
+  body: { name: 'New Name' },
+  invalidateQueries: [
+    ['user', '123'],      // Invalidate this user
+    ['users'],            // Invalidate user list
+  ],
+  callbacks: {
+    onSuccess: (data) => {
+      console.log('User updated:', data);
+    },
+  },
+});
+```
+
+## Advanced Caching Patterns
+
+### Optimistic Updates
+
+```typescript
+class OptimisticUserService {
+  private queryClient: QueryClient;
+
+  constructor(queryClient: QueryClient) {
+    this.queryClient = queryClient;
+  }
+
+  async updateUser(userId: string, updates: Partial<User>) {
+    const queryKey = ['user', userId];
+    
+    // Get current data
+    const previousData = this.queryClient.getQueryData<User>(queryKey);
+    
+    // Optimistically update cache
+    if (previousData) {
+      this.queryClient.setQueryData(queryKey, {
+        ...previousData,
+        ...updates,
+      });
+    }
+
+    try {
+      // Perform actual update
+      const updated = await this.queryClient.mutate<User>({
+        path: `/users/${userId}`,
+        method: 'PATCH',
+        body: updates,
+      });
+      
+      // Update with real data
+      this.queryClient.setQueryData(queryKey, updated);
+      
+      return updated;
+    } catch (error) {
+      // Rollback on error
+      if (previousData) {
+        this.queryClient.setQueryData(queryKey, previousData);
+      }
+      throw error;
+    }
+  }
+}
+```
+
+### Cache Warming
+
+```typescript
+class CacheWarmingService {
+  private queryClient: QueryClient;
+
+  constructor(queryClient: QueryClient) {
+    this.queryClient = queryClient;
+  }
+
+  async warmCache() {
+    // Pre-fetch commonly accessed data
+    const promises = [
+      this.warmUserProfile(),
+      this.warmUserSettings(),
+      this.warmNotifications(),
+    ];
+
+    await Promise.all(promises);
+    console.log('Cache warmed successfully');
+  }
+
+  private async warmUserProfile() {
+    await this.queryClient.query({
+      queryKey: ['user', 'profile'],
+      path: '/user/profile',
+      staleTime: 10 * 60 * 1000, // Fresh for 10 minutes
+    });
+  }
+
+  private async warmUserSettings() {
+    await this.queryClient.query({
+      queryKey: ['user', 'settings'],
+      path: '/user/settings',
+      staleTime: Infinity, // Never stale
+    });
+  }
+
+  private async warmNotifications() {
+    await this.queryClient.query({
+      queryKey: ['notifications'],
+      path: '/notifications',
+      staleTime: 60 * 1000, // Fresh for 1 minute
+    });
+  }
+}
+
+// Warm cache on app initialization
+const warmingService = new CacheWarmingService(queryClient);
+await warmingService.warmCache();
+```
+
+### Time-Based Cache Strategies
+
+```typescript
+class TimedCacheStrategy {
+  private queryClient: QueryClient;
+
+  constructor(queryClient: QueryClient) {
+    this.queryClient = queryClient;
+  }
+
+  // Frequently changing data - short cache
+  async getLiveData() {
+    return this.queryClient.query({
+      queryKey: ['live-data'],
+      path: '/live-data',
+      staleTime: 10 * 1000, // 10 seconds
+      cacheTime: 30 * 1000, // 30 seconds
+    });
+  }
+
+  // Moderately changing data - medium cache
+  async getUserProfile() {
+    return this.queryClient.query({
+      queryKey: ['profile'],
+      path: '/profile',
+      staleTime: 5 * 60 * 1000,  // 5 minutes
+      cacheTime: 15 * 60 * 1000, // 15 minutes
+    });
+  }
+
+  // Rarely changing data - long cache
+  async getStaticConfig() {
+    return this.queryClient.query({
+      queryKey: ['config'],
+      path: '/config',
+      staleTime: Infinity,        // Never stale
+      cacheTime: 24 * 60 * 60 * 1000, // 24 hours
+    });
+  }
+}
+```
+
+## Cache Statistics
+
+### Monitor Cache Performance
+
+```typescript
+import { RequestCache } from '@bytekit/core';
+
+const cache = new RequestCache();
+
+// Make some requests
+cache.set('/users/1', { id: 1 });
+cache.get('/users/1'); // Hit
+cache.get('/users/2'); // Miss
+
+// Get statistics
+const stats = cache.getStats();
+console.log('Cache hits:', stats.hits);
+console.log('Cache misses:', stats.misses);
+console.log('Hit rate:', stats.hitRate);
+console.log('Cache size:', stats.size);
+
+// Get cache size in bytes
+const sizeBytes = cache.getSize();
+console.log('Cache size in bytes:', sizeBytes);
+
+// Prune expired entries
+const pruned = cache.prune();
+console.log('Pruned entries:', pruned);
+```
+
+### QueryClient Statistics
+
+```typescript
+const stats = queryClient.getCacheStats();
+console.log('Query cache statistics:', stats);
+```
+
+## Complete Example: E-commerce Cache Strategy
+
+```typescript
+import { ApiClient, QueryClient, RequestCache } from '@bytekit/core';
+
+class EcommerceApiService {
+  private apiClient: ApiClient;
+  private queryClient: QueryClient;
+  private requestCache: RequestCache;
+
+  constructor(baseUrl: string) {
+    this.apiClient = new ApiClient({ baseUrl });
+    
+    this.queryClient = new QueryClient(this.apiClient, {
+      defaultStaleTime: 60 * 1000,
+      defaultCacheTime: 5 * 60 * 1000,
+    });
+
+    this.requestCache = new RequestCache({
+      ttl: 5 * 60 * 1000,
+      staleWhileRevalidate: 60 * 1000,
+    });
+  }
+
+  // Product data - cache for 10 minutes
+  async getProduct(productId: string) {
+    return this.queryClient.query({
+      queryKey: ['product', productId],
+      path: `/products/${productId}`,
+      staleTime: 10 * 60 * 1000,
+    });
+  }
+
+  // Product list - cache for 5 minutes
+  async getProducts(category?: string) {
+    return this.queryClient.query({
+      queryKey: ['products', category || 'all'],
+      path: '/products',
+      searchParams: category ? { category } : undefined,
+      staleTime: 5 * 60 * 1000,
+    });
+  }
+
+  // Cart - cache for 30 seconds (changes frequently)
+  async getCart() {
+    return this.queryClient.query({
+      queryKey: ['cart'],
+      path: '/cart',
+      staleTime: 30 * 1000,
+      cacheTime: 2 * 60 * 1000,
+    });
+  }
+
+  // Update cart - invalidate cart cache
+  async addToCart(productId: string, quantity: number) {
+    const result = await this.queryClient.mutate({
+      path: '/cart/items',
+      method: 'POST',
+      body: { productId, quantity },
+      invalidateQueries: [['cart']],
+    });
+
+    return result;
+  }
+
+  // Static data - cache indefinitely
+  async getCategories() {
+    return this.queryClient.query({
+      queryKey: ['categories'],
+      path: '/categories',
+      staleTime: Infinity,
+      cacheTime: 24 * 60 * 60 * 1000,
+    });
+  }
+
+  // Clear all product caches
+  clearProductCache() {
+    this.queryClient.invalidateQueries(['products']);
+    this.requestCache.invalidatePattern('/products*');
+  }
+}
+
+// Usage
+const api = new EcommerceApiService('https://api.shop.com');
+
+const product = await api.getProduct('123');
+const products = await api.getProducts('electronics');
+const cart = await api.getCart();
+
+await api.addToCart('123', 2);
+```
+
+## See Also
+
+- [REST API Integration](/examples/rest-api-integration) - API client basics
+- [QueryClient Reference](/api-reference/query-client) - Full QueryClient API
+- [RequestCache Reference](/api-reference/request-cache) - Cache configuration

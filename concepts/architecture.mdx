@@ -1,0 +1,247 @@
+---
+title: Architecture Overview
+description: Understand ByteKit's modular architecture and how core and helper modules work together
+---
+
+## Module Organization
+
+ByteKit is organized into two primary module categories:
+
+<CardGroup cols={2}>
+  <Card title="Core Modules" icon="cube">
+    Foundation components for HTTP communication, state management, and async operations
+  </Card>
+  <Card title="Helper Modules" icon="wrench">
+    Utility functions for common tasks like string manipulation, validation, and data transformations
+  </Card>
+</CardGroup>
+
+## Core Modules
+
+Core modules provide the foundational functionality for building robust applications:
+
+### HTTP & API Communication
+
+- **ApiClient** - Isomorphic HTTP client with interceptors, retry logic, and circuit breakers
+- **RetryPolicy** - Configurable retry strategies with exponential backoff
+- **ResponseValidator** - Schema-based response validation
+- **RequestCache** - Intelligent request caching with TTL support
+- **RateLimiter** - Request rate limiting and throttling
+- **RequestDeduplicator** - Prevent duplicate concurrent requests
+- **BatchRequest** - Batch multiple API calls efficiently
+
+### State Management
+
+- **QueryClient** - React Query-like state management for API data
+- **QueryState** - State tracking and lifecycle management
+
+### Observability
+
+- **Logger** - Structured logging with multiple severity levels
+- **Profiler** - Performance profiling and metrics
+- **ErrorBoundary** - Error handling and recovery
+- **debug** - Debugging utilities
+
+## Helper Modules
+
+Helper modules provide utilities for common development tasks:
+
+### Data Manipulation
+
+- **ArrayUtils** - Array operations and transformations
+- **ObjectUtils** - Object manipulation and deep operations
+- **StringUtils** - String formatting and parsing
+- **NumberUtils** - Number formatting and calculations
+- **DateUtils** - Date parsing and formatting
+- **TimeUtils** - Time-based operations
+
+### Validation & Parsing
+
+- **Validator** - Data validation utilities
+- **FormUtils** - Form data handling
+- **UrlBuilder** - URL construction and manipulation
+- **HttpStatusHelper** - HTTP status code utilities
+
+### Storage & Caching
+
+- **StorageUtils** - LocalStorage/SessionStorage abstraction
+- **CacheManager** - In-memory caching with TTL
+- **CompressionUtils** - Data compression utilities
+- **CryptoUtils** - Cryptographic operations
+
+### Real-time Communication
+
+- **WebSocketHelper** - WebSocket client utilities
+- **StreamingHelper** - Server-sent events and streaming
+- **PollingHelper** - Polling strategies
+- **EventEmitter** - Event-driven programming
+
+### UI & Data Presentation
+
+- **PaginationHelper** - Pagination logic
+- **ColorUtils** - Color manipulation
+- **DiffUtils** - Object/array diffing
+- **FileUploadHelper** - File upload handling
+- **Signal** - Reactive signals for state
+- **useSignal** - React hook for signals
+
+### Environment & Configuration
+
+- **EnvManager** - Environment variable management
+
+## Modular Export Structure
+
+ByteKit provides granular exports through `package.json` to enable optimal tree-shaking:
+
+```json
+{
+  "exports": {
+    ".": "./dist/index.js",
+    "./api-client": "./dist/utils/core/ApiClient.js",
+    "./retry-policy": "./dist/utils/core/RetryPolicy.js",
+    "./logger": "./dist/utils/core/Logger.js",
+    "./string-utils": "./dist/utils/helpers/StringUtils.js",
+    "./date-utils": "./dist/utils/helpers/DateUtils.js",
+    // ... 40+ individual exports
+  }
+}
+```
+
+This structure allows you to import exactly what you need:
+
+<CodeGroup>
+
+```typescript Full Library Import
+// Import everything (larger bundle)
+import { ApiClient, Logger, StringUtils } from 'bytekit';
+```
+
+```typescript Modular Import
+// Import only what you need (optimal bundle size)
+import { ApiClient } from 'bytekit/api-client';
+import { Logger } from 'bytekit/logger';
+import { StringUtils } from 'bytekit/string-utils';
+```
+
+</CodeGroup>
+
+## How Modules Work Together
+
+ByteKit modules are designed to work independently or in composition:
+
+### Example 1: ApiClient + Logger + RetryPolicy
+
+```typescript
+import { ApiClient } from 'bytekit/api-client';
+import { Logger } from 'bytekit/logger';
+
+const logger = new Logger({ level: 'debug' });
+
+const client = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  logger,
+  retryPolicy: {
+    maxAttempts: 3,
+    initialDelayMs: 1000
+  },
+  circuitBreaker: {
+    failureThreshold: 5,
+    resetTimeoutMs: 30000
+  }
+});
+```
+
+The ApiClient automatically integrates:
+- **Logger** for request/response logging
+- **RetryPolicy** for automatic retries with exponential backoff
+- **CircuitBreaker** to prevent cascading failures
+
+### Example 2: QueryClient + ApiClient + CacheManager
+
+```typescript
+import { QueryClient } from 'bytekit/query-client';
+import { ApiClient } from 'bytekit/api-client';
+
+const apiClient = new ApiClient({ baseUrl: 'https://api.example.com' });
+
+const queryClient = new QueryClient(apiClient, {
+  defaultStaleTime: 5000,
+  defaultCacheTime: 300000,
+  enableDeduplication: true
+});
+
+// QueryClient automatically handles:
+// - Request deduplication
+// - Cache management with TTL
+// - State tracking (loading, success, error)
+// - Automatic refetching
+```
+
+### Example 3: Independent Helper Usage
+
+```typescript
+import { StringUtils } from 'bytekit/string-utils';
+import { DateUtils } from 'bytekit/date-utils';
+import { ArrayUtils } from 'bytekit/array-utils';
+
+// Helpers work independently
+const slug = StringUtils.slugify('Hello World!');
+const formatted = DateUtils.format(new Date(), 'YYYY-MM-DD');
+const chunked = ArrayUtils.chunk([1, 2, 3, 4, 5], 2);
+```
+
+## Internal Module Dependencies
+
+ByteKit uses internal path aliases for module resolution:
+
+```json
+{
+  "imports": {
+    "#core/*": "./dist/utils/core/*",
+    "#helpers/*": "./dist/utils/helpers/*"
+  }
+}
+```
+
+This allows clean internal imports:
+
+```typescript src/utils/core/ApiClient.ts
+import { Logger } from "#core/Logger.js";
+import { StringUtils } from "#helpers/StringUtils.js";
+import { retry } from "../async/retry.js";
+```
+
+## Architecture Benefits
+
+<AccordionGroup>
+  <Accordion title="Tree-Shakeable">
+    Import only what you need. Unused modules are automatically removed from your bundle.
+  </Accordion>
+  
+  <Accordion title="Composable">
+    Modules work independently or together. Mix and match based on your needs.
+  </Accordion>
+  
+  <Accordion title="Isomorphic">
+    All modules work in both Node.js and browser environments.
+  </Accordion>
+  
+  <Accordion title="Type-Safe">
+    Full TypeScript support with comprehensive type definitions.
+  </Accordion>
+  
+  <Accordion title="Zero Dependencies (Runtime)">
+    Core functionality uses native Web APIs like `fetch`, `URL`, and `AbortController`.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Tree-Shaking Guide" icon="tree" href="/concepts/tree-shaking">
+    Learn how to optimize your bundle size
+  </Card>
+  <Card title="Isomorphic Design" icon="globe" href="/concepts/isomorphic">
+    Understand how ByteKit works everywhere
+  </Card>
+</CardGroup>

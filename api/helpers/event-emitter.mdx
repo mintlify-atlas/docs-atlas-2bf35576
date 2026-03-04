@@ -1,0 +1,370 @@
+---
+title: EventEmitter
+description: Framework-agnostic event system for pub/sub communication patterns
+---
+
+## Overview
+
+The `EventEmitter` class provides a robust, type-safe event system for implementing pub/sub patterns in your application. It supports synchronous and asynchronous event handlers, one-time listeners, error handling, and listener limits.
+
+## Import
+
+```typescript
+import { EventEmitter, createEventEmitter } from 'bytekit';
+```
+
+## Usage
+
+### Basic Event Emitter
+
+```typescript
+// Define event types
+interface Events {
+  userLoggedIn: { userId: string; timestamp: number };
+  dataUpdated: { id: string; data: any };
+  error: Error;
+}
+
+// Create event emitter
+const emitter = new EventEmitter<Events>();
+
+// Register listener
+emitter.on('userLoggedIn', (data) => {
+  console.log(`User ${data.userId} logged in at ${data.timestamp}`);
+});
+
+// Emit event
+await emitter.emit('userLoggedIn', {
+  userId: '123',
+  timestamp: Date.now()
+});
+```
+
+### One-time Listeners
+
+```typescript
+// Register one-time listener
+emitter.once('dataUpdated', (data) => {
+  console.log('Data updated:', data);
+  // This handler will be automatically removed after first execution
+});
+
+emitter.emit('dataUpdated', { id: '1', data: { value: 100 } });
+emitter.emit('dataUpdated', { id: '2', data: { value: 200 } }); // Won't trigger
+```
+
+### Error Handling
+
+```typescript
+const emitter = new EventEmitter({
+  captureRejections: true // Capture and handle errors
+});
+
+// Register error handler
+emitter.onError((data, error) => {
+  console.error('Event handler error:', error);
+  console.log('Event data:', data);
+});
+
+emitter.on('dataUpdated', async (data) => {
+  throw new Error('Handler failed');
+  // Error will be caught and passed to error handlers
+});
+```
+
+### Factory Function
+
+```typescript
+const emitter = createEventEmitter<Events>({
+  maxListeners: 20,
+  captureRejections: true
+});
+```
+
+## API Reference
+
+### Constructor
+
+<ParamField path="options" type="EventEmitterOptions" default="{}">
+  Configuration options for the event emitter
+  
+  <Expandable title="properties">
+    <ParamField path="maxListeners" type="number" default="10">
+      Maximum number of listeners per event before warning
+    </ParamField>
+    <ParamField path="captureRejections" type="boolean" default="false">
+      Whether to capture and handle rejections from async handlers
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Methods
+
+#### on
+
+Register an event listener.
+
+<ParamField path="event" type="keyof Events" required>
+  Event name to listen for
+</ParamField>
+
+<ParamField path="listener" type="EventListener<Events[K]>" required>
+  Callback function to execute when event is emitted
+</ParamField>
+
+<ResponseField name="return" type="this">
+  Returns the emitter instance for method chaining
+</ResponseField>
+
+```typescript
+emitter.on('userLoggedIn', (data) => {
+  console.log(data.userId);
+});
+```
+
+#### once
+
+Register a one-time event listener that will be automatically removed after first execution.
+
+<ParamField path="event" type="keyof Events" required>
+  Event name to listen for
+</ParamField>
+
+<ParamField path="listener" type="EventListener<Events[K]>" required>
+  Callback function to execute once
+</ParamField>
+
+<ResponseField name="return" type="this">
+  Returns the emitter instance for method chaining
+</ResponseField>
+
+#### off
+
+Remove an event listener.
+
+<ParamField path="event" type="keyof Events" required>
+  Event name
+</ParamField>
+
+<ParamField path="listener" type="EventListener<Events[K]>" required>
+  The listener function to remove
+</ParamField>
+
+<ResponseField name="return" type="this">
+  Returns the emitter instance for method chaining
+</ResponseField>
+
+```typescript
+const handler = (data) => console.log(data);
+emitter.on('dataUpdated', handler);
+emitter.off('dataUpdated', handler);
+```
+
+#### emit
+
+Emit an event asynchronously, waiting for all async handlers to complete.
+
+<ParamField path="event" type="keyof Events" required>
+  Event name to emit
+</ParamField>
+
+<ParamField path="data" type="Events[K]" required>
+  Data to pass to event listeners
+</ParamField>
+
+<ResponseField name="return" type="Promise<boolean>">
+  Promise resolving to true if event had listeners, false otherwise
+</ResponseField>
+
+```typescript
+const hasListeners = await emitter.emit('dataUpdated', { id: '1', data: {} });
+```
+
+#### emitSync
+
+Emit an event synchronously without waiting for async handlers.
+
+<ParamField path="event" type="keyof Events" required>
+  Event name to emit
+</ParamField>
+
+<ParamField path="data" type="Events[K]" required>
+  Data to pass to event listeners
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  Returns true if event had listeners, false otherwise
+</ResponseField>
+
+```typescript
+const hasListeners = emitter.emitSync('dataUpdated', { id: '1', data: {} });
+```
+
+#### removeAllListeners
+
+Remove all listeners for an event, or all listeners if no event specified.
+
+<ParamField path="event" type="keyof Events" optional>
+  Event name (optional - if omitted, removes all listeners for all events)
+</ParamField>
+
+<ResponseField name="return" type="this">
+  Returns the emitter instance for method chaining
+</ResponseField>
+
+```typescript
+emitter.removeAllListeners('dataUpdated'); // Remove listeners for specific event
+emitter.removeAllListeners(); // Remove all listeners
+```
+
+#### onError
+
+Register an error handler for capturing errors from event listeners.
+
+<ParamField path="listener" type="EventListenerWithError" required>
+  Error handler callback receiving (data, error)
+</ParamField>
+
+<ResponseField name="return" type="this">
+  Returns the emitter instance for method chaining
+</ResponseField>
+
+#### listenerCount
+
+Get the number of listeners for an event.
+
+<ParamField path="event" type="keyof Events" required>
+  Event name
+</ParamField>
+
+<ResponseField name="return" type="number">
+  Number of listeners registered for the event
+</ResponseField>
+
+```typescript
+const count = emitter.listenerCount('dataUpdated');
+```
+
+#### getListeners
+
+Get all listeners for an event.
+
+<ParamField path="event" type="keyof Events" required>
+  Event name
+</ParamField>
+
+<ResponseField name="return" type="EventListener<Events[K]>[]">
+  Array of listener functions
+</ResponseField>
+
+#### eventNames
+
+Get all event names that have listeners.
+
+<ResponseField name="return" type="(keyof Events)[]">
+  Array of event names
+</ResponseField>
+
+```typescript
+const events = emitter.eventNames(); // ['userLoggedIn', 'dataUpdated']
+```
+
+#### setMaxListeners
+
+Set the maximum number of listeners per event.
+
+<ParamField path="n" type="number" required>
+  Maximum number of listeners
+</ParamField>
+
+<ResponseField name="return" type="this">
+  Returns the emitter instance for method chaining
+</ResponseField>
+
+#### getMaxListeners
+
+Get the maximum number of listeners per event.
+
+<ResponseField name="return" type="number">
+  Maximum listener count
+</ResponseField>
+
+## Types
+
+### EventListener
+
+```typescript
+type EventListener<T = unknown> = (data: T) => void | Promise<void>;
+```
+
+Event listener function that can be sync or async.
+
+### EventListenerWithError
+
+```typescript
+type EventListenerWithError<T = unknown> = (
+  data: T,
+  error?: Error
+) => void | Promise<void>;
+```
+
+Error handler function receiving event data and error.
+
+### EventEmitterOptions
+
+```typescript
+interface EventEmitterOptions {
+  maxListeners?: number;
+  captureRejections?: boolean;
+}
+```
+
+## Best Practices
+
+### Type Safety
+
+Always define event types for type-safe event handling:
+
+```typescript
+interface AppEvents {
+  'user:login': { userId: string };
+  'user:logout': { userId: string };
+  'data:update': { id: string; data: any };
+}
+
+const emitter = new EventEmitter<AppEvents>();
+```
+
+### Memory Management
+
+Remember to remove listeners when they're no longer needed:
+
+```typescript
+const dispose = () => {
+  emitter.off('dataUpdated', handler);
+};
+
+// Or remove all listeners
+const cleanup = () => {
+  emitter.removeAllListeners();
+};
+```
+
+### Error Handling
+
+Enable error capture for production applications:
+
+```typescript
+const emitter = new EventEmitter({
+  captureRejections: true
+});
+
+emitter.onError((data, error) => {
+  logger.error('Event handler error', { error, data });
+});
+```
+
+## Related
+
+- [Signal](/api/helpers/signal) - For reactive state management
+- [PollingHelper](/api/helpers/polling-helper) - For polling with events

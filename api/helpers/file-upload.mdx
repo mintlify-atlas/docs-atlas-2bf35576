@@ -1,0 +1,462 @@
+---
+title: "File Upload Helper"
+description: "Utilities for uploading files with progress tracking and chunking support"
+---
+
+## Overview
+
+The File Upload Helper provides robust file upload functionality with features like progress tracking, automatic chunking for large files, retry logic, and file validation.
+
+## Interfaces
+
+### UploadProgress
+
+Represents the current upload progress.
+
+```typescript
+interface UploadProgress {
+  loaded: number;      // Bytes uploaded
+  total: number;       // Total bytes
+  percentage: number;  // Progress percentage (0-100)
+}
+```
+
+### FileUploadOptions
+
+Configuration options for file uploads.
+
+```typescript
+interface FileUploadOptions {
+  onProgress?: (progress: UploadProgress) => void;
+  chunkSize?: number;          // Default: 5MB
+  maxRetries?: number;         // Default: 3
+  timeout?: number;            // Default: 30000ms
+  headers?: Record<string, string>;
+}
+```
+
+### UploadResponse
+
+Response object returned after upload.
+
+```typescript
+interface UploadResponse {
+  success: boolean;
+  fileId?: string;
+  url?: string;
+  error?: string;
+}
+```
+
+## Class: FileUploadHelper
+
+### uploadFile
+
+Upload a file with progress tracking and automatic chunking.
+
+```typescript
+static async uploadFile(
+  file: File | Blob,
+  endpoint: string,
+  options?: FileUploadOptions
+): Promise<UploadResponse>
+```
+
+**Parameters:**
+- `file` - File or Blob to upload
+- `endpoint` - Upload endpoint URL
+- `options` - Upload options (optional)
+
+**Returns:** Promise resolving to upload response
+
+**Example:**
+```typescript
+import { FileUploadHelper } from '@bytekit/utils';
+
+const fileInput = document.querySelector<HTMLInputElement>('#file-input');
+const file = fileInput.files?.[0];
+
+if (file) {
+  const response = await FileUploadHelper.uploadFile(
+    file,
+    'https://api.example.com/upload',
+    {
+      onProgress: (progress) => {
+        console.log(`Upload progress: ${progress.percentage}%`);
+        updateProgressBar(progress.percentage);
+      },
+      chunkSize: 10 * 1024 * 1024, // 10MB chunks
+      maxRetries: 5,
+      headers: {
+        'Authorization': 'Bearer token123'
+      }
+    }
+  );
+  
+  if (response.success) {
+    console.log('Upload successful!', response.fileId);
+  } else {
+    console.error('Upload failed:', response.error);
+  }
+}
+```
+
+### validateFile
+
+Validate a file before upload based on size, MIME type, and extension.
+
+```typescript
+static validateFile(
+  file: File,
+  options?: {
+    maxSize?: number;              // Default: 100MB
+    allowedTypes?: string[];       // MIME types
+    allowedExtensions?: string[];  // File extensions
+  }
+): { valid: boolean; error?: string }
+```
+
+**Parameters:**
+- `file` - File to validate
+- `options` - Validation options (optional)
+
+**Returns:** Validation result with error message if invalid
+
+**Example:**
+```typescript
+import { FileUploadHelper } from '@bytekit/utils';
+
+const file = fileInput.files?.[0];
+
+if (file) {
+  const validation = FileUploadHelper.validateFile(file, {
+    maxSize: 50 * 1024 * 1024, // 50MB
+    allowedTypes: ['image/jpeg', 'image/png', 'image/gif'],
+    allowedExtensions: ['jpg', 'jpeg', 'png', 'gif']
+  });
+  
+  if (!validation.valid) {
+    alert(validation.error);
+    return;
+  }
+  
+  // Proceed with upload
+  await FileUploadHelper.uploadFile(file, endpoint);
+}
+```
+
+## Complete Examples
+
+### Image Upload with Preview
+
+```typescript
+import { FileUploadHelper } from '@bytekit/utils';
+
+class ImageUploader {
+  private progressBar: HTMLProgressElement;
+  private preview: HTMLImageElement;
+  
+  constructor() {
+    this.progressBar = document.querySelector('#progress')!;
+    this.preview = document.querySelector('#preview')!;
+  }
+  
+  async uploadImage(file: File) {
+    // Validate file
+    const validation = FileUploadHelper.validateFile(file, {
+      maxSize: 10 * 1024 * 1024, // 10MB
+      allowedTypes: [
+        'image/jpeg',
+        'image/png',
+        'image/webp'
+      ]
+    });
+    
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+    
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      this.preview.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+    
+    // Upload with progress
+    const response = await FileUploadHelper.uploadFile(
+      file,
+      'https://api.example.com/images/upload',
+      {
+        onProgress: (progress) => {
+          this.progressBar.value = progress.percentage;
+        },
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`
+        }
+      }
+    );
+    
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+    
+    return response.url;
+  }
+  
+  private getToken(): string {
+    return localStorage.getItem('auth_token') || '';
+  }
+}
+
+// Usage
+const uploader = new ImageUploader();
+const fileInput = document.querySelector<HTMLInputElement>('#file-input')!;
+
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files?.[0];
+  if (!file) return;
+  
+  try {
+    const imageUrl = await uploader.uploadImage(file);
+    console.log('Image uploaded:', imageUrl);
+  } catch (error) {
+    console.error('Upload failed:', error);
+    alert(error.message);
+  }
+});
+```
+
+### Multi-File Upload
+
+```typescript
+import { FileUploadHelper } from '@bytekit/utils';
+
+interface UploadResult {
+  file: File;
+  success: boolean;
+  fileId?: string;
+  error?: string;
+}
+
+class MultiFileUploader {
+  async uploadFiles(
+    files: File[],
+    endpoint: string,
+    onProgress?: (fileIndex: number, progress: UploadProgress) => void
+  ): Promise<UploadResult[]> {
+    const results: UploadResult[] = [];
+    
+    // Validate all files first
+    for (const file of files) {
+      const validation = FileUploadHelper.validateFile(file, {
+        maxSize: 100 * 1024 * 1024, // 100MB
+        allowedTypes: [
+          'image/*',
+          'video/*',
+          'application/pdf'
+        ]
+      });
+      
+      if (!validation.valid) {
+        results.push({
+          file,
+          success: false,
+          error: validation.error
+        });
+        continue;
+      }
+    }
+    
+    // Upload files sequentially
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      try {
+        const response = await FileUploadHelper.uploadFile(
+          file,
+          endpoint,
+          {
+            onProgress: (progress) => {
+              onProgress?.(i, progress);
+            },
+            chunkSize: 5 * 1024 * 1024 // 5MB
+          }
+        );
+        
+        results.push({
+          file,
+          success: response.success,
+          fileId: response.fileId,
+          error: response.error
+        });
+      } catch (error) {
+        results.push({
+          file,
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+    
+    return results;
+  }
+}
+
+// Usage
+const uploader = new MultiFileUploader();
+const fileInput = document.querySelector<HTMLInputElement>('#multi-file-input')!;
+
+fileInput.addEventListener('change', async () => {
+  const files = Array.from(fileInput.files || []);
+  if (files.length === 0) return;
+  
+  console.log(`Uploading ${files.length} files...`);
+  
+  const results = await uploader.uploadFiles(
+    files,
+    'https://api.example.com/upload',
+    (fileIndex, progress) => {
+      console.log(`File ${fileIndex + 1}: ${progress.percentage}%`);
+    }
+  );
+  
+  const successful = results.filter(r => r.success).length;
+  console.log(`${successful}/${files.length} files uploaded successfully`);
+  
+  // Handle failures
+  results.forEach((result, index) => {
+    if (!result.success) {
+      console.error(`Failed to upload ${result.file.name}: ${result.error}`);
+    }
+  });
+});
+```
+
+### Drag and Drop Upload
+
+```typescript
+import { FileUploadHelper } from '@bytekit/utils';
+
+class DragDropUploader {
+  private dropZone: HTMLElement;
+  
+  constructor(dropZoneId: string) {
+    this.dropZone = document.getElementById(dropZoneId)!;
+    this.setupEventListeners();
+  }
+  
+  private setupEventListeners() {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      this.dropZone.addEventListener(eventName, this.preventDefaults, false);
+    });
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+      this.dropZone.addEventListener(eventName, () => {
+        this.dropZone.classList.add('highlight');
+      }, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+      this.dropZone.addEventListener(eventName, () => {
+        this.dropZone.classList.remove('highlight');
+      }, false);
+    });
+    
+    this.dropZone.addEventListener('drop', this.handleDrop.bind(this), false);
+  }
+  
+  private preventDefaults(e: Event) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  
+  private async handleDrop(e: DragEvent) {
+    const dt = e.dataTransfer;
+    const files = dt?.files;
+    
+    if (!files || files.length === 0) return;
+    
+    for (const file of Array.from(files)) {
+      await this.uploadFile(file);
+    }
+  }
+  
+  private async uploadFile(file: File) {
+    // Validate
+    const validation = FileUploadHelper.validateFile(file, {
+      maxSize: 50 * 1024 * 1024,
+      allowedTypes: ['image/jpeg', 'image/png', 'application/pdf']
+    });
+    
+    if (!validation.valid) {
+      this.showError(file.name, validation.error!);
+      return;
+    }
+    
+    // Create progress element
+    const progressEl = this.createProgressElement(file.name);
+    
+    try {
+      const response = await FileUploadHelper.uploadFile(
+        file,
+        'https://api.example.com/upload',
+        {
+          onProgress: (progress) => {
+            this.updateProgress(progressEl, progress.percentage);
+          }
+        }
+      );
+      
+      if (response.success) {
+        this.showSuccess(progressEl, file.name);
+      } else {
+        this.showError(file.name, response.error!);
+      }
+    } catch (error) {
+      this.showError(file.name, 'Upload failed');
+    }
+  }
+  
+  private createProgressElement(fileName: string): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'upload-item';
+    el.innerHTML = `
+      <span class="file-name">${fileName}</span>
+      <progress value="0" max="100"></progress>
+      <span class="status">Uploading...</span>
+    `;
+    this.dropZone.appendChild(el);
+    return el;
+  }
+  
+  private updateProgress(el: HTMLElement, percentage: number) {
+    const progress = el.querySelector('progress')!;
+    progress.value = percentage;
+  }
+  
+  private showSuccess(el: HTMLElement, fileName: string) {
+    const status = el.querySelector('.status')!;
+    status.textContent = 'Uploaded!';
+    status.className = 'status success';
+  }
+  
+  private showError(fileName: string, error: string) {
+    console.error(`Failed to upload ${fileName}: ${error}`);
+    alert(`Failed to upload ${fileName}: ${error}`);
+  }
+}
+
+// Initialize
+const uploader = new DragDropUploader('drop-zone');
+```
+
+## Best Practices
+
+1. Always validate files before uploading
+2. Provide visual feedback during upload (progress bars)
+3. Handle errors gracefully and provide clear error messages
+4. Use appropriate chunk sizes based on network conditions
+5. Implement retry logic for unreliable connections
+6. Add authentication headers when required
+7. Consider implementing upload resumption for large files

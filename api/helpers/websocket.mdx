@@ -1,0 +1,644 @@
+---
+title: "WebSocket Helper"
+description: "Utilities for WebSocket connections with automatic reconnection and typed messages"
+---
+
+## Overview
+
+The WebSocket Helper provides a robust WebSocket client with features like automatic reconnection, heartbeat monitoring, typed message handling, and request-response patterns.
+
+## Interfaces
+
+### WebSocketMessage
+
+Structure of WebSocket messages.
+
+```typescript
+interface WebSocketMessage<T = unknown> {
+  type: string;       // Message type
+  data: T;            // Message payload
+  timestamp?: number; // Timestamp (auto-added)
+}
+```
+
+### WebSocketOptions
+
+Configuration options for WebSocket connections.
+
+```typescript
+interface WebSocketOptions {
+  reconnect?: boolean;              // Default: true
+  maxReconnectAttempts?: number;    // Default: 5
+  reconnectDelayMs?: number;        // Default: 3000
+  heartbeatIntervalMs?: number;     // Default: 30000
+  messageTimeout?: number;          // Default: 5000
+}
+```
+
+### Type Definitions
+
+```typescript
+type WebSocketEventHandler<T = unknown> = (data: T) => void;
+type WebSocketErrorHandler = (error: Error) => void;
+```
+
+## Class: WebSocketHelper
+
+### Constructor
+
+Create a new WebSocket helper instance.
+
+```typescript
+const ws = new WebSocketHelper(url: string, options?: WebSocketOptions)
+```
+
+**Parameters:**
+- `url` - WebSocket server URL
+- `options` - Connection options (optional)
+
+**Example:**
+```typescript
+import { WebSocketHelper } from '@bytekit/utils';
+
+const ws = new WebSocketHelper('wss://api.example.com/ws', {
+  reconnect: true,
+  maxReconnectAttempts: 10,
+  reconnectDelayMs: 5000,
+  heartbeatIntervalMs: 30000
+});
+```
+
+## Methods
+
+### connect
+
+Connect to the WebSocket server.
+
+```typescript
+async connect(): Promise<void>
+```
+
+**Returns:** Promise that resolves when connected
+
+**Example:**
+```typescript
+import { WebSocketHelper } from '@bytekit/utils';
+
+const ws = new WebSocketHelper('wss://api.example.com/ws');
+
+try {
+  await ws.connect();
+  console.log('Connected to WebSocket');
+} catch (error) {
+  console.error('Connection failed:', error);
+}
+```
+
+### send
+
+Send a typed message to the server.
+
+```typescript
+send<T = unknown>(type: string, data: T): void
+```
+
+**Parameters:**
+- `type` - Message type identifier
+- `data` - Message payload
+
+**Example:**
+```typescript
+// Send a chat message
+ws.send('chat:message', {
+  room: 'general',
+  text: 'Hello, world!'
+});
+
+// Send a command
+ws.send('user:update', {
+  userId: '123',
+  status: 'online'
+});
+```
+
+### on
+
+Subscribe to messages of a specific type.
+
+```typescript
+on<T = unknown>(
+  type: string,
+  handler: WebSocketEventHandler<T>
+): () => void
+```
+
+**Parameters:**
+- `type` - Message type to listen for
+- `handler` - Callback function for messages
+
+**Returns:** Unsubscribe function
+
+**Example:**
+```typescript
+import { WebSocketHelper } from '@bytekit/utils';
+
+interface ChatMessage {
+  user: string;
+  text: string;
+  timestamp: number;
+}
+
+const ws = new WebSocketHelper('wss://chat.example.com');
+await ws.connect();
+
+// Subscribe to chat messages
+const unsubscribe = ws.on<ChatMessage>('chat:message', (message) => {
+  console.log(`${message.user}: ${message.text}`);
+  displayMessage(message);
+});
+
+// Later: unsubscribe
+// unsubscribe();
+```
+
+### onError
+
+Subscribe to error events.
+
+```typescript
+onError(handler: WebSocketErrorHandler): () => void
+```
+
+**Parameters:**
+- `handler` - Error handler function
+
+**Returns:** Unsubscribe function
+
+**Example:**
+```typescript
+const unsubscribe = ws.onError((error) => {
+  console.error('WebSocket error:', error);
+  showErrorNotification(error.message);
+});
+```
+
+### request
+
+Send a message and wait for a response (request-response pattern).
+
+```typescript
+async request<TRequest, TResponse>(
+  type: string,
+  data: TRequest,
+  responseType?: string
+): Promise<TResponse>
+```
+
+**Parameters:**
+- `type` - Request message type
+- `data` - Request payload
+- `responseType` - Expected response type (default: `${type}:response`)
+
+**Returns:** Promise resolving to response data
+
+**Example:**
+```typescript
+interface UserQuery {
+  userId: string;
+}
+
+interface UserData {
+  id: string;
+  name: string;
+  email: string;
+}
+
+// Request-response pattern
+try {
+  const userData = await ws.request<UserQuery, UserData>(
+    'user:get',
+    { userId: '123' }
+  );
+  
+  console.log('User data:', userData);
+} catch (error) {
+  console.error('Request timeout or failed');
+}
+```
+
+### close
+
+Close the WebSocket connection.
+
+```typescript
+close(): void
+```
+
+**Example:**
+```typescript
+// Close connection when done
+ws.close();
+```
+
+### isConnected
+
+Check if currently connected.
+
+```typescript
+isConnected(): boolean
+```
+
+**Returns:** `true` if connected
+
+**Example:**
+```typescript
+if (ws.isConnected()) {
+  ws.send('ping', {});
+}
+```
+
+### getState
+
+Get the current connection state.
+
+```typescript
+getState(): number
+```
+
+**Returns:** WebSocket state constant
+
+**States:**
+- `WebSocket.CONNECTING` (0)
+- `WebSocket.OPEN` (1)
+- `WebSocket.CLOSING` (2)
+- `WebSocket.CLOSED` (3)
+
+**Example:**
+```typescript
+const state = ws.getState();
+
+switch (state) {
+  case WebSocket.OPEN:
+    console.log('Connected');
+    break;
+  case WebSocket.CONNECTING:
+    console.log('Connecting...');
+    break;
+  case WebSocket.CLOSED:
+    console.log('Disconnected');
+    break;
+}
+```
+
+## Complete Examples
+
+### Real-Time Chat Application
+
+```typescript
+import { WebSocketHelper } from '@bytekit/utils';
+
+interface ChatMessage {
+  id: string;
+  user: string;
+  text: string;
+  timestamp: number;
+}
+
+interface UserStatus {
+  userId: string;
+  status: 'online' | 'offline' | 'away';
+}
+
+class ChatClient {
+  private ws: WebSocketHelper;
+  private currentUser: string;
+  private messageHandlers: ((message: ChatMessage) => void)[] = [];
+  
+  constructor(serverUrl: string, username: string) {
+    this.currentUser = username;
+    
+    this.ws = new WebSocketHelper(serverUrl, {
+      reconnect: true,
+      maxReconnectAttempts: 10,
+      reconnectDelayMs: 3000
+    });
+    
+    this.setupEventHandlers();
+  }
+  
+  async connect() {
+    await this.ws.connect();
+    
+    // Authenticate
+    await this.ws.request('auth:login', {
+      username: this.currentUser
+    });
+    
+    console.log('Connected and authenticated');
+  }
+  
+  private setupEventHandlers() {
+    // Handle incoming messages
+    this.ws.on<ChatMessage>('chat:message', (message) => {
+      this.messageHandlers.forEach(handler => handler(message));
+    });
+    
+    // Handle user status changes
+    this.ws.on<UserStatus>('user:status', (status) => {
+      console.log(`${status.userId} is now ${status.status}`);
+      this.updateUserStatus(status);
+    });
+    
+    // Handle errors
+    this.ws.onError((error) => {
+      console.error('WebSocket error:', error);
+      this.showError(error.message);
+    });
+  }
+  
+  sendMessage(room: string, text: string) {
+    this.ws.send('chat:message', {
+      room,
+      text,
+      user: this.currentUser,
+      timestamp: Date.now()
+    });
+  }
+  
+  async getMessageHistory(room: string, limit = 50): Promise<ChatMessage[]> {
+    return this.ws.request<{ room: string; limit: number }, ChatMessage[]>(
+      'chat:history',
+      { room, limit }
+    );
+  }
+  
+  onMessage(handler: (message: ChatMessage) => void) {
+    this.messageHandlers.push(handler);
+  }
+  
+  updateStatus(status: 'online' | 'offline' | 'away') {
+    this.ws.send('user:status', {
+      userId: this.currentUser,
+      status
+    });
+  }
+  
+  private updateUserStatus(status: UserStatus) {
+    // Update UI with user status
+    const userEl = document.getElementById(`user-${status.userId}`);
+    if (userEl) {
+      userEl.className = `user-status ${status.status}`;
+    }
+  }
+  
+  private showError(message: string) {
+    // Show error notification
+    alert(`Error: ${message}`);
+  }
+  
+  disconnect() {
+    this.ws.close();
+  }
+}
+
+// Usage
+const chat = new ChatClient('wss://chat.example.com', 'john_doe');
+
+// Connect
+await chat.connect();
+
+// Listen for messages
+chat.onMessage((message) => {
+  const messageEl = document.createElement('div');
+  messageEl.className = 'message';
+  messageEl.innerHTML = `
+    <strong>${message.user}:</strong> ${message.text}
+  `;
+  document.getElementById('messages')!.appendChild(messageEl);
+});
+
+// Send messages
+document.getElementById('send-btn')!.addEventListener('click', () => {
+  const input = document.getElementById('message-input') as HTMLInputElement;
+  chat.sendMessage('general', input.value);
+  input.value = '';
+});
+
+// Update status
+window.addEventListener('beforeunload', () => {
+  chat.updateStatus('offline');
+  chat.disconnect();
+});
+```
+
+### Live Data Dashboard
+
+```typescript
+import { WebSocketHelper } from '@bytekit/utils';
+
+interface MetricData {
+  metric: string;
+  value: number;
+  timestamp: number;
+}
+
+interface AlertData {
+  severity: 'info' | 'warning' | 'error';
+  message: string;
+  timestamp: number;
+}
+
+class DashboardClient {
+  private ws: WebSocketHelper;
+  private metrics: Map<string, number[]> = new Map();
+  
+  constructor(serverUrl: string) {
+    this.ws = new WebSocketHelper(serverUrl, {
+      heartbeatIntervalMs: 30000,
+      reconnect: true
+    });
+    
+    this.setupHandlers();
+  }
+  
+  async connect() {
+    await this.ws.connect();
+    
+    // Subscribe to metrics
+    this.ws.send('subscribe', {
+      metrics: ['cpu', 'memory', 'requests_per_sec']
+    });
+  }
+  
+  private setupHandlers() {
+    // Handle metric updates
+    this.ws.on<MetricData>('metric:update', (data) => {
+      this.updateMetric(data);
+    });
+    
+    // Handle alerts
+    this.ws.on<AlertData>('alert', (alert) => {
+      this.showAlert(alert);
+    });
+    
+    // Handle connection status
+    this.ws.onError((error) => {
+      this.showConnectionStatus('error');
+    });
+  }
+  
+  private updateMetric(data: MetricData) {
+    // Store metric value
+    if (!this.metrics.has(data.metric)) {
+      this.metrics.set(data.metric, []);
+    }
+    
+    const values = this.metrics.get(data.metric)!;
+    values.push(data.value);
+    
+    // Keep only last 100 values
+    if (values.length > 100) {
+      values.shift();
+    }
+    
+    // Update dashboard
+    this.renderMetric(data.metric, data.value, values);
+  }
+  
+  private renderMetric(name: string, value: number, history: number[]) {
+    const el = document.getElementById(`metric-${name}`);
+    if (el) {
+      el.querySelector('.current-value')!.textContent = value.toFixed(2);
+      this.updateChart(el, history);
+    }
+  }
+  
+  private updateChart(element: HTMLElement, data: number[]) {
+    // Update chart with new data
+  }
+  
+  private showAlert(alert: AlertData) {
+    const alertEl = document.createElement('div');
+    alertEl.className = `alert alert-${alert.severity}`;
+    alertEl.textContent = alert.message;
+    document.getElementById('alerts')!.appendChild(alertEl);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => alertEl.remove(), 5000);
+  }
+  
+  private showConnectionStatus(status: 'connected' | 'error') {
+    const statusEl = document.getElementById('connection-status')!;
+    statusEl.className = `status-${status}`;
+    statusEl.textContent = status === 'connected' ? 'Connected' : 'Disconnected';
+  }
+  
+  disconnect() {
+    this.ws.close();
+  }
+}
+
+// Usage
+const dashboard = new DashboardClient('wss://metrics.example.com');
+await dashboard.connect();
+
+// Cleanup
+window.addEventListener('beforeunload', () => {
+  dashboard.disconnect();
+});
+```
+
+### Multiplayer Game Client
+
+```typescript
+import { WebSocketHelper } from '@bytekit/utils';
+
+interface PlayerMove {
+  playerId: string;
+  x: number;
+  y: number;
+  timestamp: number;
+}
+
+interface GameState {
+  players: Record<string, { x: number; y: number }>;
+  score: Record<string, number>;
+}
+
+class GameClient {
+  private ws: WebSocketHelper;
+  private playerId: string;
+  
+  constructor(serverUrl: string, playerId: string) {
+    this.playerId = playerId;
+    this.ws = new WebSocketHelper(serverUrl, {
+      reconnect: true,
+      messageTimeout: 1000 // Fast timeout for games
+    });
+    
+    this.setupHandlers();
+  }
+  
+  async connect() {
+    await this.ws.connect();
+    
+    // Join game
+    const state = await this.ws.request<
+      { playerId: string },
+      GameState
+    >('game:join', { playerId: this.playerId });
+    
+    this.initializeGame(state);
+  }
+  
+  private setupHandlers() {
+    // Handle player movements
+    this.ws.on<PlayerMove>('player:move', (move) => {
+      this.updatePlayerPosition(move.playerId, move.x, move.y);
+    });
+    
+    // Handle game state updates
+    this.ws.on<GameState>('game:state', (state) => {
+      this.updateGameState(state);
+    });
+  }
+  
+  sendMove(x: number, y: number) {
+    this.ws.send('player:move', {
+      playerId: this.playerId,
+      x,
+      y,
+      timestamp: Date.now()
+    });
+  }
+  
+  private initializeGame(state: GameState) {
+    // Initialize game with current state
+    console.log('Game initialized:', state);
+  }
+  
+  private updatePlayerPosition(playerId: string, x: number, y: number) {
+    // Update player position in game
+  }
+  
+  private updateGameState(state: GameState) {
+    // Update entire game state
+  }
+  
+  disconnect() {
+    this.ws.send('game:leave', { playerId: this.playerId });
+    this.ws.close();
+  }
+}
+```
+
+## Best Practices
+
+1. Always handle errors with `onError`
+2. Implement heartbeat/ping-pong to detect connection issues
+3. Use typed messages for better type safety
+4. Clean up connections on page unload
+5. Implement exponential backoff for reconnection
+6. Use request-response pattern for operations requiring confirmation
+7. Validate incoming messages before processing
+8. Consider message queuing for offline scenarios

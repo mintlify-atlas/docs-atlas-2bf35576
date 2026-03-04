@@ -1,0 +1,99 @@
+---
+title: RetryPolicy
+description: Retry logic and circuit breaker patterns for resilient applications
+---
+
+## Overview
+
+RetryPolicy and CircuitBreaker provide resilient error handling with automatic retries and circuit breaker patterns.
+
+## Import
+
+```typescript
+import { RetryPolicy, CircuitBreaker } from "bytekit";
+// or
+import { RetryPolicy } from "bytekit/retry-policy";
+```
+
+## RetryConfig
+
+<ParamField path="maxAttempts" type="number" optional default="3">
+  Maximum number of retry attempts
+</ParamField>
+
+<ParamField path="initialDelayMs" type="number" optional default="100">
+  Initial delay before first retry
+</ParamField>
+
+<ParamField path="maxDelayMs" type="number" optional default="10000">
+  Maximum delay between retries
+</ParamField>
+
+<ParamField path="backoffMultiplier" type="number" optional default="2">
+  Multiplier for exponential backoff
+</ParamField>
+
+<ParamField path="retryableStatuses" type="number[]" optional>
+  HTTP status codes that should trigger retry
+</ParamField>
+
+## CircuitBreakerConfig
+
+<ParamField path="failureThreshold" type="number" optional default="5">
+  Number of failures before opening circuit
+</ParamField>
+
+<ParamField path="successThreshold" type="number" optional default="2">
+  Number of successes to close circuit
+</ParamField>
+
+<ParamField path="resetTimeoutMs" type="number" optional default="60000">
+  Time before attempting to close circuit
+</ParamField>
+
+## Usage with ApiClient
+
+```typescript
+import { ApiClient } from "bytekit";
+
+const api = new ApiClient({
+  baseUrl: "https://api.example.com",
+  retryPolicy: {
+    maxAttempts: 3,
+    initialDelayMs: 100,
+    maxDelayMs: 5000,
+    backoffMultiplier: 2,
+    retryableStatuses: [408, 429, 500, 502, 503, 504]
+  },
+  circuitBreaker: {
+    failureThreshold: 5,
+    successThreshold: 2,
+    resetTimeoutMs: 60000
+  }
+});
+
+// Requests will automatically retry on failure
+const data = await api.get("/data");
+```
+
+## Standalone Usage
+
+```typescript
+import { RetryPolicy } from "bytekit";
+
+const retryPolicy = new RetryPolicy({
+  maxAttempts: 3,
+  initialDelayMs: 100
+});
+
+await retryPolicy.execute(async () => {
+  const response = await fetch("/api/data");
+  if (!response.ok) throw new Error("Request failed");
+  return response.json();
+});
+```
+
+## See Also
+
+- [ApiClient](/api/core/api-client)
+- [Error Handling Example](/examples/error-handling)

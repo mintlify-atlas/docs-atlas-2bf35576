@@ -1,0 +1,568 @@
+---
+title: CompressionUtils
+description: Isomorphic compression utilities for data compression and encoding
+---
+
+## Overview
+
+The `CompressionUtils` class provides compression, encoding, and data transformation utilities that work seamlessly in both Node.js and browser environments.
+
+<Note>
+  **Production Use**: The built-in `compress()` method uses a simple run-length encoding algorithm. For production compression, consider using libraries like pako (browser) or zlib (Node.js).
+</Note>
+
+## Compression
+
+### compress
+
+Compress string using run-length encoding.
+
+```typescript
+static compress(str: string): string
+```
+
+#### Returns
+
+<ResponseField name="compressed" type="string">
+  Base64-encoded compressed string
+</ResponseField>
+
+#### Example
+
+```typescript
+import { CompressionUtils } from 'bytekit/utils/helpers';
+
+// Compress repeated characters
+const text = 'aaabbbcccc';
+const compressed = CompressionUtils.compress(text);
+console.log(compressed); // Smaller size for repetitive data
+
+// Compress JSON data
+const data = JSON.stringify({ key: 'value' });
+const compressedData = CompressionUtils.compress(data);
+```
+
+### decompress
+
+Decompress run-length encoded string.
+
+```typescript
+static decompress(compressed: string): string
+```
+
+#### Example
+
+```typescript
+const compressed = CompressionUtils.compress('aaabbbcccc');
+const decompressed = CompressionUtils.decompress(compressed);
+console.log(decompressed); // 'aaabbbcccc'
+```
+
+### getCompressionRatio
+
+Calculate compression ratio.
+
+```typescript
+static getCompressionRatio(original: string, compressed: string): number
+```
+
+#### Returns
+
+<ResponseField name="ratio" type="number">
+  Compression ratio as percentage (0-100, where 100 is best compression)
+</ResponseField>
+
+#### Example
+
+```typescript
+const original = 'aaaaaabbbbbbcccccc';
+const compressed = CompressionUtils.compress(original);
+const ratio = CompressionUtils.getCompressionRatio(original, compressed);
+
+console.log(`Compression ratio: ${ratio.toFixed(2)}%`);
+// Output: Compression ratio: 45.23%
+
+if (ratio > 30) {
+  console.log('Good compression achieved');
+}
+```
+
+## Base64 Encoding
+
+### base64Encode
+
+Encode string to Base64.
+
+```typescript
+static base64Encode(str: string): string
+```
+
+#### Example
+
+```typescript
+const encoded = CompressionUtils.base64Encode('Hello, World!');
+console.log(encoded); // 'SGVsbG8sIFdvcmxkIQ=='
+```
+
+### base64Decode
+
+Decode Base64 string.
+
+```typescript
+static base64Decode(str: string): string
+```
+
+#### Example
+
+```typescript
+const decoded = CompressionUtils.base64Decode('SGVsbG8sIFdvcmxkIQ==');
+console.log(decoded); // 'Hello, World!'
+```
+
+### base64UrlEncode
+
+Encode to URL-safe Base64.
+
+```typescript
+static base64UrlEncode(str: string): string
+```
+
+#### Example
+
+```typescript
+const urlSafe = CompressionUtils.base64UrlEncode('data+with/special=chars');
+// No +, /, or = characters - safe for URLs
+```
+
+### base64UrlDecode
+
+Decode URL-safe Base64.
+
+```typescript
+static base64UrlDecode(str: string): string
+```
+
+## JSON Operations
+
+### serializeCompressed
+
+Serialize object to compressed JSON.
+
+```typescript
+static serializeCompressed(obj: unknown): string
+```
+
+#### Example
+
+```typescript
+const data = {
+  users: [
+    { id: 1, name: 'Alice' },
+    { id: 2, name: 'Bob' },
+  ],
+  metadata: { total: 2 },
+};
+
+const compressed = CompressionUtils.serializeCompressed(data);
+
+// Store compressed data
+localStorage.setItem('data', compressed);
+
+// Send compressed data
+fetch('/api/upload', {
+  method: 'POST',
+  body: compressed,
+  headers: { 'Content-Encoding': 'custom' },
+});
+```
+
+### deserializeCompressed
+
+Deserialize compressed JSON.
+
+```typescript
+static deserializeCompressed(compressed: string): unknown
+```
+
+#### Example
+
+```typescript
+const compressed = localStorage.getItem('data');
+if (compressed) {
+  const data = CompressionUtils.deserializeCompressed(compressed);
+  console.log(data);
+}
+```
+
+### minifyJSON
+
+Minify JSON by removing whitespace.
+
+```typescript
+static minifyJSON(json: string): string
+```
+
+#### Example
+
+```typescript
+const json = `{
+  "name": "Alice",
+  "age": 30
+}`;
+
+const minified = CompressionUtils.minifyJSON(json);
+console.log(minified); // '{"name":"Alice","age":30}'
+```
+
+### prettyJSON
+
+Pretty print JSON with indentation.
+
+```typescript
+static prettyJSON(json: string, indent?: number): string
+```
+
+#### Parameters
+
+<ParamField path="json" type="string" required>
+  JSON string to format
+</ParamField>
+
+<ParamField path="indent" type="number" default="2">
+  Number of spaces for indentation
+</ParamField>
+
+#### Example
+
+```typescript
+const minified = '{"name":"Alice","age":30}';
+const pretty = CompressionUtils.prettyJSON(minified);
+
+console.log(pretty);
+// Output:
+// {
+//   "name": "Alice",
+//   "age": 30
+// }
+
+// Custom indentation
+const pretty4 = CompressionUtils.prettyJSON(minified, 4);
+```
+
+## Node.js Compression (Gzip/Deflate)
+
+### gzip
+
+Gzip compress (Node.js only, falls back to simple compression in browser).
+
+```typescript
+static async gzip(str: string): Promise<Buffer | string>
+```
+
+#### Example
+
+```typescript
+// Node.js: Returns Buffer
+const compressed = await CompressionUtils.gzip('large data string');
+
+// Browser: Falls back to simple compression
+const compressed = await CompressionUtils.gzip('data');
+```
+
+### gunzip
+
+Gzip decompress.
+
+```typescript
+static async gunzip(data: Buffer | string): Promise<string>
+```
+
+#### Example
+
+```typescript
+const decompressed = await CompressionUtils.gunzip(compressedBuffer);
+console.log(decompressed);
+```
+
+### deflate
+
+Deflate compress (Node.js only).
+
+```typescript
+static async deflate(str: string): Promise<Buffer | string>
+```
+
+### inflate
+
+Deflate decompress.
+
+```typescript
+static async inflate(data: Buffer | string): Promise<string>
+```
+
+#### Example
+
+```typescript
+const compressed = await CompressionUtils.deflate('data');
+const decompressed = await CompressionUtils.inflate(compressed);
+```
+
+## Size Utilities
+
+### getSize
+
+Get string size in bytes.
+
+```typescript
+static getSize(str: string): number
+```
+
+#### Example
+
+```typescript
+const text = 'Hello, World!';
+const size = CompressionUtils.getSize(text);
+console.log(`Size: ${size} bytes`);
+
+// Compare original vs compressed
+const original = JSON.stringify(largeObject);
+const compressed = CompressionUtils.compress(original);
+
+console.log(`Original: ${CompressionUtils.getSize(original)} bytes`);
+console.log(`Compressed: ${CompressionUtils.getSize(compressed)} bytes`);
+```
+
+### formatBytes
+
+Format bytes to human-readable string.
+
+```typescript
+static formatBytes(bytes: number, decimals?: number): string
+```
+
+#### Parameters
+
+<ParamField path="bytes" type="number" required>
+  Number of bytes
+</ParamField>
+
+<ParamField path="decimals" type="number" default="2">
+  Number of decimal places
+</ParamField>
+
+#### Example
+
+```typescript
+CompressionUtils.formatBytes(0);           // '0 Bytes'
+CompressionUtils.formatBytes(1024);        // '1.00 KB'
+CompressionUtils.formatBytes(1048576);     // '1.00 MB'
+CompressionUtils.formatBytes(1073741824);  // '1.00 GB'
+CompressionUtils.formatBytes(1234567, 3);  // '1.177 MB'
+
+// Display file size
+const fileSize = CompressionUtils.getSize(fileContent);
+console.log(`File size: ${CompressionUtils.formatBytes(fileSize)}`);
+```
+
+## Complete Example: Data Compression Service
+
+```typescript
+import { CompressionUtils } from 'bytekit/utils/helpers';
+
+class DataCompressionService {
+  /**
+   * Compress and store data with compression stats
+   */
+  compressAndStore(key: string, data: unknown): void {
+    const original = JSON.stringify(data);
+    const compressed = CompressionUtils.serializeCompressed(data);
+    
+    const ratio = CompressionUtils.getCompressionRatio(original, compressed);
+    const originalSize = CompressionUtils.getSize(original);
+    const compressedSize = CompressionUtils.getSize(compressed);
+
+    console.log('Compression Stats:');
+    console.log(`  Original: ${CompressionUtils.formatBytes(originalSize)}`);
+    console.log(`  Compressed: ${CompressionUtils.formatBytes(compressedSize)}`);
+    console.log(`  Ratio: ${ratio.toFixed(2)}%`);
+
+    // Store compressed data
+    localStorage.setItem(key, compressed);
+    
+    // Store metadata
+    localStorage.setItem(`${key}:meta`, JSON.stringify({
+      originalSize,
+      compressedSize,
+      ratio,
+      timestamp: Date.now(),
+    }));
+  }
+
+  /**
+   * Retrieve and decompress data
+   */
+  retrieveAndDecompress<T = unknown>(key: string): T | null {
+    const compressed = localStorage.getItem(key);
+    if (!compressed) return null;
+
+    try {
+      return CompressionUtils.deserializeCompressed(compressed) as T;
+    } catch (error) {
+      console.error('Decompression failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get storage statistics
+   */
+  getStorageStats(): { totalSize: number; itemCount: number } {
+    let totalSize = 0;
+    let itemCount = 0;
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && !key.endsWith(':meta')) {
+        const value = localStorage.getItem(key);
+        if (value) {
+          totalSize += CompressionUtils.getSize(value);
+          itemCount++;
+        }
+      }
+    }
+
+    return { totalSize, itemCount };
+  }
+
+  /**
+   * Log storage report
+   */
+  logStorageReport(): void {
+    const { totalSize, itemCount } = this.getStorageStats();
+    
+    console.log('Storage Report:');
+    console.log(`  Items: ${itemCount}`);
+    console.log(`  Total Size: ${CompressionUtils.formatBytes(totalSize)}`);
+    console.log(`  Avg Item Size: ${CompressionUtils.formatBytes(totalSize / itemCount)}`);
+  }
+}
+
+// Usage
+const service = new DataCompressionService();
+
+// Compress and store large dataset
+const largeDataset = {
+  users: Array.from({ length: 1000 }, (_, i) => ({
+    id: i,
+    name: `User ${i}`,
+    email: `user${i}@example.com`,
+  })),
+};
+
+service.compressAndStore('users', largeDataset);
+// Output:
+// Compression Stats:
+//   Original: 45.2 KB
+//   Compressed: 12.8 KB
+//   Ratio: 71.68%
+
+// Retrieve data
+const users = service.retrieveAndDecompress<typeof largeDataset>('users');
+console.log(`Retrieved ${users?.users.length} users`);
+
+// Storage report
+service.logStorageReport();
+// Output:
+// Storage Report:
+//   Items: 1
+//   Total Size: 12.8 KB
+//   Avg Item Size: 12.8 KB
+```
+
+## Example: Response Compression Middleware
+
+```typescript
+import { CompressionUtils } from 'bytekit/utils/helpers';
+
+class APIClient {
+  /**
+   * Fetch with automatic decompression
+   */
+  async fetchCompressed<T>(url: string): Promise<T> {
+    const response = await fetch(url);
+    const compressed = await response.text();
+    
+    // Check if response is compressed
+    const isCompressed = response.headers.get('Content-Encoding') === 'custom';
+    
+    if (isCompressed) {
+      const decompressed = CompressionUtils.decompress(compressed);
+      return JSON.parse(decompressed);
+    }
+    
+    return JSON.parse(compressed);
+  }
+
+  /**
+   * Post with automatic compression
+   */
+  async postCompressed(url: string, data: unknown): Promise<Response> {
+    const json = JSON.stringify(data);
+    const originalSize = CompressionUtils.getSize(json);
+    
+    // Only compress if data is large enough
+    if (originalSize > 1024) {
+      const compressed = CompressionUtils.compress(json);
+      const compressedSize = CompressionUtils.getSize(compressed);
+      const ratio = CompressionUtils.getCompressionRatio(json, compressed);
+
+      console.log(`Compressing request (${ratio.toFixed(2)}% reduction)`);
+
+      return fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Encoding': 'custom',
+        },
+        body: compressed,
+      });
+    }
+
+    // Send uncompressed
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: json,
+    });
+  }
+}
+
+// Usage
+const client = new APIClient();
+
+// Fetch compressed response
+const data = await client.fetchCompressed('/api/data');
+
+// Post with automatic compression
+await client.postCompressed('/api/data', largeDataset);
+```
+
+## Best Practices
+
+<Tip>
+  **Compression Threshold**: Only compress data larger than 1KB. Small data may become larger after compression due to encoding overhead.
+</Tip>
+
+<Warning>
+  **Production Compression**: For production use, prefer:
+  - **Browser**: pako library for gzip
+  - **Node.js**: Built-in zlib module
+  - **HTTP**: Let the server/CDN handle compression (gzip/brotli)
+</Warning>
+
+<Info>
+  **Storage Optimization**: Use compression for localStorage/sessionStorage to:
+  - Store more data within quota limits
+  - Reduce serialization/deserialization time
+  - Improve overall app performance
+</Info>

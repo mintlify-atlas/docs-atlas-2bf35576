@@ -1,0 +1,684 @@
+---
+title: 'ObjectUtils'
+description: 'Object manipulation utilities for everyday development tasks'
+---
+
+## Overview
+
+The `ObjectUtils` class provides static methods for object manipulation, including deep cloning, merging, property access, filtering, and transformation operations.
+
+**Source:** `workspace/source/src/utils/helpers/ObjectUtils.ts:5`
+
+## Methods
+
+### isEmpty
+
+Check if value is empty (null, undefined, empty string, empty array, empty object).
+
+```typescript
+static isEmpty(value: unknown): boolean
+```
+
+**Parameters:**
+- `value: unknown` - Value to check
+
+**Returns:** `boolean` - True if value is empty
+
+**Example:**
+```typescript
+import { ObjectUtils } from 'bytekit';
+
+ObjectUtils.isEmpty(null); // true
+ObjectUtils.isEmpty(undefined); // true
+ObjectUtils.isEmpty(''); // true
+ObjectUtils.isEmpty('  '); // true
+ObjectUtils.isEmpty([]); // true
+ObjectUtils.isEmpty({}); // true
+ObjectUtils.isEmpty({ a: 1 }); // false
+```
+
+---
+
+### isNotEmpty
+
+Check if value is NOT empty.
+
+```typescript
+static isNotEmpty(value: unknown): boolean
+```
+
+**Parameters:**
+- `value: unknown` - Value to check
+
+**Returns:** `boolean` - True if value is not empty
+
+**Example:**
+```typescript
+ObjectUtils.isNotEmpty({ a: 1 }); // true
+ObjectUtils.isNotEmpty(null); // false
+```
+
+---
+
+### deepClone
+
+Create a deep copy of an object.
+
+```typescript
+static deepClone<T>(obj: T): T
+```
+
+**Parameters:**
+- `obj: T` - Object to clone
+
+**Returns:** `T` - Deep cloned copy
+
+**Example:**
+```typescript
+const original = {
+  name: 'Alice',
+  address: { city: 'NYC', zip: 10001 },
+  hobbies: ['reading', 'coding']
+};
+
+const copy = ObjectUtils.deepClone(original);
+copy.address.city = 'LA';
+
+console.log(original.address.city); // 'NYC' (unchanged)
+console.log(copy.address.city); // 'LA'
+```
+
+---
+
+### merge
+
+Shallow merge objects (right overwrites left).
+
+```typescript
+static merge<T extends Record<string, unknown>>(
+  ...objects: Partial<T>[]
+): T
+```
+
+**Parameters:**
+- `...objects: Partial<T>[]` - Objects to merge
+
+**Returns:** `T` - Merged object
+
+**Example:**
+```typescript
+const defaults = { port: 3000, host: 'localhost' };
+const config = { port: 8080, debug: true };
+
+const result = ObjectUtils.merge(defaults, config);
+// { port: 8080, host: 'localhost', debug: true }
+```
+
+---
+
+### deepMerge
+
+Deep merge objects recursively.
+
+```typescript
+static deepMerge(
+  ...objects: Array<Record<string, unknown>>
+): Record<string, unknown>
+```
+
+**Parameters:**
+- `...objects: Array<Record<string, unknown>>` - Objects to merge deeply
+
+**Returns:** `Record<string, unknown>` - Deeply merged object
+
+**Example:**
+```typescript
+const obj1 = {
+  server: { port: 3000, host: 'localhost' },
+  features: { auth: true }
+};
+
+const obj2 = {
+  server: { port: 8080 },
+  features: { cache: true }
+};
+
+const result = ObjectUtils.deepMerge(obj1, obj2);
+// {
+//   server: { port: 8080, host: 'localhost' },
+//   features: { auth: true, cache: true }
+// }
+```
+
+---
+
+### pick
+
+Pick specific keys from object.
+
+```typescript
+static pick<T extends Record<string, unknown>, K extends keyof T>(
+  obj: T,
+  keys: K[]
+): Partial<T>
+```
+
+**Parameters:**
+- `obj: T` - Source object
+- `keys: K[]` - Keys to pick
+
+**Returns:** `Partial<T>` - Object with only picked keys
+
+**Example:**
+```typescript
+const user = {
+  id: 1,
+  name: 'Alice',
+  email: 'alice@example.com',
+  password: 'secret'
+};
+
+const public = ObjectUtils.pick(user, ['id', 'name', 'email']);
+// { id: 1, name: 'Alice', email: 'alice@example.com' }
+```
+
+---
+
+### omit
+
+Omit specific keys from object.
+
+```typescript
+static omit<T extends Record<string, unknown>, K extends keyof T>(
+  obj: T,
+  keys: K[]
+): Partial<T>
+```
+
+**Parameters:**
+- `obj: T` - Source object
+- `keys: K[]` - Keys to omit
+
+**Returns:** `Partial<T>` - Object without omitted keys
+
+**Example:**
+```typescript
+const user = {
+  id: 1,
+  name: 'Alice',
+  password: 'secret'
+};
+
+const safe = ObjectUtils.omit(user, ['password']);
+// { id: 1, name: 'Alice' }
+```
+
+---
+
+### get
+
+Get nested value using dot notation.
+
+```typescript
+static get<T = unknown>(
+  obj: Record<string, unknown>,
+  path: string,
+  defaultValue?: T
+): T
+```
+
+**Parameters:**
+- `obj: Record<string, unknown>` - Source object
+- `path: string` - Dot-notation path (e.g., 'user.address.city')
+- `defaultValue?: T` - Default value if path doesn't exist
+
+**Returns:** `T` - Value at path or default value
+
+**Example:**
+```typescript
+const data = {
+  user: {
+    name: 'Alice',
+    address: { city: 'NYC' }
+  }
+};
+
+ObjectUtils.get(data, 'user.address.city'); // 'NYC'
+ObjectUtils.get(data, 'user.age', 25); // 25 (default)
+```
+
+---
+
+### set
+
+Set nested value using dot notation.
+
+```typescript
+static set(
+  obj: Record<string, unknown>,
+  path: string,
+  value: unknown
+): Record<string, unknown>
+```
+
+**Parameters:**
+- `obj: Record<string, unknown>` - Target object
+- `path: string` - Dot-notation path
+- `value: unknown` - Value to set
+
+**Returns:** `Record<string, unknown>` - Modified object
+
+**Example:**
+```typescript
+const data = {};
+ObjectUtils.set(data, 'user.address.city', 'NYC');
+// { user: { address: { city: 'NYC' } } }
+```
+
+---
+
+### flatten
+
+Flatten nested object to single level with dot-notation keys.
+
+```typescript
+static flatten(
+  obj: Record<string, unknown>,
+  prefix = ""
+): Record<string, unknown>
+```
+
+**Parameters:**
+- `obj: Record<string, unknown>` - Object to flatten
+- `prefix: string` - Prefix for keys (default: '')
+
+**Returns:** `Record<string, unknown>` - Flattened object
+
+**Example:**
+```typescript
+const nested = {
+  user: {
+    name: 'Alice',
+    address: { city: 'NYC', zip: 10001 }
+  }
+};
+
+ObjectUtils.flatten(nested);
+// {
+//   'user.name': 'Alice',
+//   'user.address.city': 'NYC',
+//   'user.address.zip': 10001
+// }
+```
+
+---
+
+### unflatten
+
+Unflatten object (reverse of flatten).
+
+```typescript
+static unflatten(obj: Record<string, unknown>): Record<string, unknown>
+```
+
+**Parameters:**
+- `obj: Record<string, unknown>` - Flattened object
+
+**Returns:** `Record<string, unknown>` - Nested object
+
+**Example:**
+```typescript
+const flat = {
+  'user.name': 'Alice',
+  'user.address.city': 'NYC'
+};
+
+ObjectUtils.unflatten(flat);
+// {
+//   user: {
+//     name: 'Alice',
+//     address: { city: 'NYC' }
+//   }
+// }
+```
+
+---
+
+### filter
+
+Filter object properties by predicate.
+
+```typescript
+static filter<T extends Record<string, unknown>>(
+  obj: T,
+  predicate: (key: string, value: unknown) => boolean
+): Partial<T>
+```
+
+**Parameters:**
+- `obj: T` - Source object
+- `predicate: (key: string, value: unknown) => boolean` - Filter function
+
+**Returns:** `Partial<T>` - Filtered object
+
+**Example:**
+```typescript
+const obj = { a: 1, b: 2, c: 3, d: 4 };
+const result = ObjectUtils.filter(obj, (key, value) => value > 2);
+// { c: 3, d: 4 }
+```
+
+---
+
+### mapValues
+
+Map object values with a transformation function.
+
+```typescript
+static mapValues<T extends Record<string, unknown>, R>(
+  obj: T,
+  mapper: (value: unknown, key: string) => R
+): Record<string, R>
+```
+
+**Parameters:**
+- `obj: T` - Source object
+- `mapper: (value: unknown, key: string) => R` - Mapper function
+
+**Returns:** `Record<string, R>` - Object with mapped values
+
+**Example:**
+```typescript
+const prices = { apple: 1, banana: 2, cherry: 3 };
+const doubled = ObjectUtils.mapValues(prices, val => val * 2);
+// { apple: 2, banana: 4, cherry: 6 }
+```
+
+---
+
+### hasKeys
+
+Check if object has all specified keys.
+
+```typescript
+static hasKeys<T extends Record<string, unknown>>(
+  obj: T,
+  keys: (keyof T)[]
+): boolean
+```
+
+**Parameters:**
+- `obj: T` - Object to check
+- `keys: (keyof T)[]` - Keys to look for
+
+**Returns:** `boolean` - True if all keys exist
+
+**Example:**
+```typescript
+const user = { id: 1, name: 'Alice' };
+ObjectUtils.hasKeys(user, ['id', 'name']); // true
+ObjectUtils.hasKeys(user, ['id', 'email']); // false
+```
+
+---
+
+### hasAnyKey
+
+Check if object has any of the specified keys.
+
+```typescript
+static hasAnyKey<T extends Record<string, unknown>>(
+  obj: T,
+  keys: (keyof T)[]
+): boolean
+```
+
+**Parameters:**
+- `obj: T` - Object to check
+- `keys: (keyof T)[]` - Keys to look for
+
+**Returns:** `boolean` - True if any key exists
+
+**Example:**
+```typescript
+const user = { id: 1, name: 'Alice' };
+ObjectUtils.hasAnyKey(user, ['email', 'id']); // true
+```
+
+---
+
+### invert
+
+Invert object keys and values.
+
+```typescript
+static invert<T extends Record<string, string | number>>(
+  obj: T
+): Record<string | number, string>
+```
+
+**Parameters:**
+- `obj: T` - Object to invert
+
+**Returns:** `Record<string | number, string>` - Inverted object
+
+**Example:**
+```typescript
+const statusCodes = { ok: 200, notFound: 404, error: 500 };
+ObjectUtils.invert(statusCodes);
+// { '200': 'ok', '404': 'notFound', '500': 'error' }
+```
+
+---
+
+### groupBy
+
+Group array of objects by key.
+
+```typescript
+static groupBy<T extends Record<string, unknown>>(
+  arr: T[],
+  key: keyof T
+): Record<string, T[]>
+```
+
+**Parameters:**
+- `arr: T[]` - Array to group
+- `key: keyof T` - Key to group by
+
+**Returns:** `Record<string, T[]>` - Grouped object
+
+**Example:**
+```typescript
+const users = [
+  { id: 1, role: 'admin' },
+  { id: 2, role: 'user' },
+  { id: 3, role: 'admin' }
+];
+
+ObjectUtils.groupBy(users, 'role');
+// {
+//   admin: [{ id: 1, role: 'admin' }, { id: 3, role: 'admin' }],
+//   user: [{ id: 2, role: 'user' }]
+// }
+```
+
+---
+
+### indexBy
+
+Index array of objects by key.
+
+```typescript
+static indexBy<T extends Record<string, unknown>>(
+  arr: T[],
+  key: keyof T
+): Record<string, T>
+```
+
+**Parameters:**
+- `arr: T[]` - Array to index
+- `key: keyof T` - Key to index by
+
+**Returns:** `Record<string, T>` - Indexed object
+
+**Example:**
+```typescript
+const users = [
+  { id: 1, name: 'Alice' },
+  { id: 2, name: 'Bob' }
+];
+
+ObjectUtils.indexBy(users, 'id');
+// {
+//   '1': { id: 1, name: 'Alice' },
+//   '2': { id: 2, name: 'Bob' }
+// }
+```
+
+---
+
+### deepEqual
+
+Check if two objects are deeply equal.
+
+```typescript
+static deepEqual(a: unknown, b: unknown): boolean
+```
+
+**Parameters:**
+- `a: unknown` - First value
+- `b: unknown` - Second value
+
+**Returns:** `boolean` - True if deeply equal
+
+**Example:**
+```typescript
+const obj1 = { a: 1, b: { c: 2 } };
+const obj2 = { a: 1, b: { c: 2 } };
+const obj3 = { a: 1, b: { c: 3 } };
+
+ObjectUtils.deepEqual(obj1, obj2); // true
+ObjectUtils.deepEqual(obj1, obj3); // false
+```
+
+---
+
+### size
+
+Get object size (number of keys).
+
+```typescript
+static size(obj: Record<string, unknown> | null | undefined): number
+```
+
+**Parameters:**
+- `obj: Record<string, unknown> | null | undefined` - Object to measure
+
+**Returns:** `number` - Number of keys
+
+**Example:**
+```typescript
+ObjectUtils.size({ a: 1, b: 2, c: 3 }); // 3
+ObjectUtils.size(null); // 0
+```
+
+---
+
+### entries
+
+Convert object to array of [key, value] pairs.
+
+```typescript
+static entries<T extends Record<string, unknown>>(
+  obj: T | null | undefined
+): Array<[string, unknown]>
+```
+
+**Parameters:**
+- `obj: T | null | undefined` - Object to convert
+
+**Returns:** `Array<[string, unknown]>` - Array of entries
+
+**Example:**
+```typescript
+ObjectUtils.entries({ a: 1, b: 2 });
+// [['a', 1], ['b', 2]]
+```
+
+---
+
+### fromEntries
+
+Convert array of [key, value] pairs to object.
+
+```typescript
+static fromEntries(
+  entries: Array<[string, unknown]>
+): Record<string, unknown>
+```
+
+**Parameters:**
+- `entries: Array<[string, unknown]>` - Array of entries
+
+**Returns:** `Record<string, unknown>` - Object created from entries
+
+**Example:**
+```typescript
+ObjectUtils.fromEntries([['a', 1], ['b', 2]]);
+// { a: 1, b: 2 }
+```
+
+---
+
+### assign
+
+Assign properties from sources to target (like Object.assign).
+
+```typescript
+static assign<T extends Record<string, unknown>>(
+  target: T,
+  ...sources: Partial<T>[]
+): T
+```
+
+**Parameters:**
+- `target: T` - Target object (will be modified)
+- `...sources: Partial<T>[]` - Source objects
+
+**Returns:** `T` - Modified target object
+
+**Example:**
+```typescript
+const target = { a: 1 };
+ObjectUtils.assign(target, { b: 2 }, { c: 3 });
+console.log(target); // { a: 1, b: 2, c: 3 }
+```
+
+---
+
+### fromKeys
+
+Create object from keys with same value.
+
+```typescript
+static fromKeys<T extends string | number>(
+  keys: T[],
+  value: unknown
+): Record<T, unknown>
+```
+
+**Parameters:**
+- `keys: T[]` - Array of keys
+- `value: unknown` - Value for all keys
+
+**Returns:** `Record<T, unknown>` - Object with all keys set to value
+
+**Example:**
+```typescript
+ObjectUtils.fromKeys(['a', 'b', 'c'], 0);
+// { a: 0, b: 0, c: 0 }
+
+ObjectUtils.fromKeys(['admin', 'user'], false);
+// { admin: false, user: false }
+```

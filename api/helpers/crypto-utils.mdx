@@ -1,0 +1,487 @@
+---
+title: CryptoUtils
+description: Isomorphic cryptographic utilities for secure hashing, encoding, and token generation
+---
+
+## Overview
+
+The `CryptoUtils` class provides cryptographically secure utilities for hashing, encoding, token generation, and HMAC operations. It works seamlessly in both Node.js and browser environments.
+
+<Warning>
+  **Security**: All random generation uses `crypto.getRandomValues()` for cryptographic security. Never use `Math.random()` for security-sensitive operations.
+</Warning>
+
+## Token Generation
+
+### generateToken
+
+Generate a cryptographically secure random token.
+
+```typescript
+static generateToken(length?: number): string
+```
+
+#### Parameters
+
+<ParamField path="length" type="number" default="32">
+  Length of the token in bytes
+</ParamField>
+
+#### Returns
+
+<ResponseField name="token" type="string">
+  Hex-encoded random string (2x length characters)
+</ResponseField>
+
+#### Example
+
+```typescript
+import { CryptoUtils } from 'bytekit/utils/helpers';
+
+// Generate 32-byte token (64 hex characters)
+const token = CryptoUtils.generateToken();
+console.log(token); // '7a8f3e2c...'
+
+// Generate 16-byte token (32 hex characters)
+const shortToken = CryptoUtils.generateToken(16);
+
+// Use for session tokens
+const sessionToken = CryptoUtils.generateToken(32);
+
+// Use for API keys
+const apiKey = CryptoUtils.generateToken(48);
+```
+
+### generateUUID
+
+Generate a cryptographically secure UUID v4.
+
+```typescript
+static generateUUID(): string
+```
+
+#### Returns
+
+<ResponseField name="uuid" type="string">
+  UUID v4 string in format xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+</ResponseField>
+
+#### Example
+
+```typescript
+const id = CryptoUtils.generateUUID();
+console.log(id); // '550e8400-e29b-41d4-a716-446655440000'
+
+// Use for unique identifiers
+const userId = CryptoUtils.generateUUID();
+const requestId = CryptoUtils.generateUUID();
+```
+
+### randomBytes
+
+Generate random bytes.
+
+```typescript
+static randomBytes(length: number): Uint8Array
+```
+
+#### Example
+
+```typescript
+const bytes = CryptoUtils.randomBytes(32);
+console.log(bytes); // Uint8Array(32) [127, 45, 89, ...]
+```
+
+## Base64 Encoding
+
+### base64Encode
+
+Encode string to Base64 with Unicode support.
+
+```typescript
+static base64Encode(str: string): string
+```
+
+#### Example
+
+```typescript
+const encoded = CryptoUtils.base64Encode('Hello, World!');
+console.log(encoded); // 'SGVsbG8sIFdvcmxkIQ=='
+
+// Unicode support
+const unicode = CryptoUtils.base64Encode('Hello 世界 🌍');
+console.log(unicode); // Properly encoded Unicode
+```
+
+### base64Decode
+
+Decode Base64 string to UTF-8.
+
+```typescript
+static base64Decode(str: string): string
+```
+
+#### Example
+
+```typescript
+const decoded = CryptoUtils.base64Decode('SGVsbG8sIFdvcmxkIQ==');
+console.log(decoded); // 'Hello, World!'
+```
+
+### base64UrlEncode
+
+Encode to URL-safe Base64 (RFC 4648).
+
+```typescript
+static base64UrlEncode(str: string): string
+```
+
+#### Example
+
+```typescript
+const urlSafe = CryptoUtils.base64UrlEncode('data+with/special=chars');
+console.log(urlSafe); // No +, /, or = characters
+
+// Use in URLs
+const token = CryptoUtils.base64UrlEncode(JSON.stringify({ userId: 123 }));
+const url = `https://api.example.com/verify?token=${token}`;
+```
+
+### base64UrlDecode
+
+Decode URL-safe Base64.
+
+```typescript
+static base64UrlDecode(str: string): string
+```
+
+#### Example
+
+```typescript
+const decoded = CryptoUtils.base64UrlDecode(urlSafeToken);
+const data = JSON.parse(decoded);
+```
+
+## Hashing
+
+### hash
+
+Hash string using SHA algorithms.
+
+```typescript
+static async hash(
+  str: string,
+  algorithm?: 'SHA-1' | 'SHA-256' | 'SHA-384' | 'SHA-512'
+): Promise<string>
+```
+
+#### Parameters
+
+<ParamField path="str" type="string" required>
+  String to hash
+</ParamField>
+
+<ParamField path="algorithm" type="string" default="SHA-256">
+  Hash algorithm: 'SHA-1', 'SHA-256', 'SHA-384', or 'SHA-512'
+</ParamField>
+
+#### Returns
+
+<ResponseField name="hash" type="string">
+  Hex-encoded hash string
+</ResponseField>
+
+#### Example
+
+```typescript
+// SHA-256 (default)
+const hash256 = await CryptoUtils.hash('password');
+console.log(hash256); // '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8'
+
+// SHA-512
+const hash512 = await CryptoUtils.hash('password', 'SHA-512');
+
+// Hash file contents
+const fileContent = await readFile('data.txt');
+const fileHash = await CryptoUtils.hash(fileContent, 'SHA-256');
+
+// Verify data integrity
+const data = JSON.stringify(userData);
+const checksum = await CryptoUtils.hash(data);
+```
+
+### verifyHash
+
+Verify string matches hash.
+
+```typescript
+static async verifyHash(
+  str: string,
+  hash: string,
+  algorithm?: 'SHA-1' | 'SHA-256' | 'SHA-384' | 'SHA-512'
+): Promise<boolean>
+```
+
+#### Example
+
+```typescript
+const password = 'mypassword';
+const storedHash = '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8';
+
+const isValid = await CryptoUtils.verifyHash(password, storedHash);
+if (isValid) {
+  console.log('Password is correct');
+}
+```
+
+### simpleHash
+
+Non-cryptographic hash for checksums (not secure).
+
+```typescript
+static simpleHash(str: string): string
+```
+
+<Warning>
+  **Not Cryptographic**: This is a fast hash for checksums and object keys, but NOT for security. Use `hash()` for security-sensitive operations.
+</Warning>
+
+#### Example
+
+```typescript
+// Quick hash for cache keys
+const cacheKey = CryptoUtils.simpleHash(JSON.stringify(params));
+
+// Fast object ID generation
+const objectId = CryptoUtils.simpleHash(JSON.stringify(object));
+```
+
+## HMAC Operations
+
+### hmac
+
+Create HMAC signature.
+
+```typescript
+static async hmac(
+  message: string,
+  secret: string,
+  algorithm?: 'SHA-256' | 'SHA-512'
+): Promise<string>
+```
+
+#### Parameters
+
+<ParamField path="message" type="string" required>
+  Message to sign
+</ParamField>
+
+<ParamField path="secret" type="string" required>
+  Secret key
+</ParamField>
+
+<ParamField path="algorithm" type="string" default="SHA-256">
+  HMAC algorithm: 'SHA-256' or 'SHA-512'
+</ParamField>
+
+#### Example
+
+```typescript
+// Sign API request
+const message = 'POST:/api/users:1704067200';
+const secret = 'api-secret-key';
+const signature = await CryptoUtils.hmac(message, secret);
+
+// Verify webhook signature
+async function verifyWebhook(payload: string, receivedSig: string): Promise<boolean> {
+  const expectedSig = await CryptoUtils.hmac(payload, WEBHOOK_SECRET);
+  return CryptoUtils.constantTimeCompare(expectedSig, receivedSig);
+}
+
+// Sign JWT-like token
+const header = CryptoUtils.base64UrlEncode(JSON.stringify({ alg: 'HS256' }));
+const payload = CryptoUtils.base64UrlEncode(JSON.stringify({ userId: 123 }));
+const message = `${header}.${payload}`;
+const signature = await CryptoUtils.hmac(message, JWT_SECRET);
+const token = `${message}.${CryptoUtils.base64UrlEncode(signature)}`;
+```
+
+## Security Utilities
+
+### constantTimeCompare
+
+Constant-time string comparison (prevents timing attacks).
+
+```typescript
+static constantTimeCompare(a: string, b: string): boolean
+```
+
+<Info>
+  **Timing Attack Prevention**: This function compares strings in constant time to prevent timing-based side-channel attacks.
+</Info>
+
+#### Example
+
+```typescript
+// Verify HMAC signatures securely
+const expectedSig = await CryptoUtils.hmac(payload, secret);
+const isValid = CryptoUtils.constantTimeCompare(expectedSig, receivedSig);
+
+// Verify tokens
+if (CryptoUtils.constantTimeCompare(token, expectedToken)) {
+  console.log('Token is valid');
+}
+```
+
+## Encryption (Not Recommended)
+
+### xorEncrypt / xorDecrypt
+
+<Warning>
+  **Deprecated**: XOR encryption is NOT cryptographically secure. Use proper encryption libraries like TweetNaCl, libsodium, or the Web Crypto API for production encryption.
+</Warning>
+
+```typescript
+static xorEncrypt(str: string, key: string): string
+static xorDecrypt(encrypted: string, key: string): string
+```
+
+#### Example
+
+```typescript
+// NOT SECURE - For demonstration only
+const encrypted = CryptoUtils.xorEncrypt('secret', 'key');
+const decrypted = CryptoUtils.xorDecrypt(encrypted, 'key');
+```
+
+## Complete Example: Secure API Request Signing
+
+```typescript
+import { CryptoUtils } from 'bytekit/utils/helpers';
+
+class SecureAPIClient {
+  private apiKey: string;
+  private apiSecret: string;
+
+  constructor(apiKey: string, apiSecret: string) {
+    this.apiKey = apiKey;
+    this.apiSecret = apiSecret;
+  }
+
+  /**
+   * Sign API request with HMAC
+   */
+  private async signRequest(
+    method: string,
+    path: string,
+    timestamp: number,
+    body?: string
+  ): Promise<string> {
+    const message = `${method}:${path}:${timestamp}:${body || ''}`;
+    return CryptoUtils.hmac(message, this.apiSecret);
+  }
+
+  /**
+   * Make authenticated API request
+   */
+  async request(method: string, path: string, body?: object): Promise<Response> {
+    const timestamp = Date.now();
+    const bodyStr = body ? JSON.stringify(body) : undefined;
+    const signature = await this.signRequest(method, path, timestamp, bodyStr);
+
+    return fetch(`https://api.example.com${path}`, {
+      method,
+      headers: {
+        'X-API-Key': this.apiKey,
+        'X-Timestamp': timestamp.toString(),
+        'X-Signature': signature,
+        'Content-Type': 'application/json',
+      },
+      body: bodyStr,
+    });
+  }
+
+  /**
+   * Generate secure session token
+   */
+  generateSessionToken(): string {
+    return CryptoUtils.generateToken(32);
+  }
+
+  /**
+   * Create verifiable token with expiration
+   */
+  async createToken(userId: string, expiresIn: number): Promise<string> {
+    const payload = {
+      userId,
+      exp: Date.now() + expiresIn,
+      nonce: CryptoUtils.generateToken(16),
+    };
+
+    const encoded = CryptoUtils.base64UrlEncode(JSON.stringify(payload));
+    const signature = await CryptoUtils.hmac(encoded, this.apiSecret);
+    
+    return `${encoded}.${signature}`;
+  }
+
+  /**
+   * Verify token
+   */
+  async verifyToken(token: string): Promise<{ userId: string } | null> {
+    const [encoded, signature] = token.split('.');
+    if (!encoded || !signature) return null;
+
+    // Verify signature
+    const expectedSig = await CryptoUtils.hmac(encoded, this.apiSecret);
+    if (!CryptoUtils.constantTimeCompare(signature, expectedSig)) {
+      return null;
+    }
+
+    // Verify expiration
+    const payload = JSON.parse(CryptoUtils.base64UrlDecode(encoded));
+    if (Date.now() > payload.exp) {
+      return null;
+    }
+
+    return { userId: payload.userId };
+  }
+}
+
+// Usage
+const client = new SecureAPIClient('api-key', 'api-secret');
+
+// Make signed request
+const response = await client.request('POST', '/api/users', {
+  name: 'Alice',
+  email: 'alice@example.com',
+});
+
+// Generate and verify tokens
+const token = await client.createToken('user123', 3600000); // 1 hour
+const verified = await client.verifyToken(token);
+if (verified) {
+  console.log('User ID:', verified.userId);
+}
+```
+
+## Best Practices
+
+<Tip>
+  **Algorithm Choice**:
+  - **SHA-256**: Default, fast, and secure for most use cases
+  - **SHA-512**: More secure, use for high-security applications
+  - **SHA-1**: Deprecated, avoid for new applications
+</Tip>
+
+<Warning>
+  **Token Storage**: Never store tokens or secrets in:
+  - Client-side code
+  - URL parameters
+  - Local storage (for sensitive tokens)
+  
+  Use HTTP-only cookies or secure server-side sessions instead.
+</Warning>
+
+<Info>
+  **HMAC Usage**: Always use HMAC for API request signing, webhook verification, and JWT signatures. Never use simple hashing for authentication.
+</Info>

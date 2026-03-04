@@ -1,0 +1,69 @@
+---
+title: ResponseValidator
+description: Runtime response validation for API responses
+---
+
+## Overview
+
+ResponseValidator provides runtime validation of API responses to ensure data integrity.
+
+## Import
+
+```typescript
+import { ResponseValidator } from "bytekit";
+// or
+import { ResponseValidator } from "bytekit/response-validator";
+```
+
+## ValidationSchema
+
+Define a validation schema for your response data.
+
+```typescript
+const userSchema = {
+  type: "object",
+  required: ["id", "name", "email"],
+  properties: {
+    id: { type: "string" },
+    name: { type: "string" },
+    email: { type: "string" },
+    age: { type: "number" }
+  }
+};
+```
+
+## Usage with ApiClient
+
+```typescript
+import { ApiClient } from "bytekit";
+
+const api = new ApiClient({
+  baseUrl: "https://api.example.com"
+});
+
+const user = await api.get<User>("/users/123", {
+  validateResponse: userSchema
+});
+// Throws if response doesn't match schema
+```
+
+## Standalone Usage
+
+```typescript
+import { ResponseValidator } from "bytekit";
+
+const validator = new ResponseValidator();
+
+const data = { id: "123", name: "John", email: "john@example.com" };
+
+if (validator.validate(data, userSchema)) {
+  console.log("Valid response");
+} else {
+  console.error("Invalid response", validator.errors);
+}
+```
+
+## See Also
+
+- [ApiClient](/api/core/api-client)
+- [Validator](/api/helpers/validator)

@@ -1,0 +1,632 @@
+---
+title: 'Framework Integration'
+description: 'Learn how to integrate ByteKit with React, Vue, Svelte, and other JavaScript frameworks'
+---
+
+# Framework Integration
+
+ByteKit is framework-agnostic but provides seamless integration patterns for popular frameworks. This guide shows real examples from ByteKit's example applications.
+
+## React
+
+### Basic Hook Pattern
+
+```typescript
+import { useState, useEffect } from 'react';
+import { createApiClient } from 'bytekit';
+import type { ApiClient } from 'bytekit';
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+// Create API client hook
+function useApiClient(config: Parameters<typeof createApiClient>[0]) {
+  const [client] = useState(() => createApiClient(config));
+  return client;
+}
+
+// Create query hook
+function useApiQuery<T>(
+  client: ApiClient,
+  url: string
+) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const response = await client.get(url);
+        if (!cancelled) {
+          setData(response as T);
+          setError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : 'Unknown error'
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    fetchData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [client, url]);
+
+  return { data, loading, error };
+}
+
+// Usage in component
+export default function App() {
+  const client = useApiClient({
+    baseUrl: 'https://jsonplaceholder.typicode.com',
+    timeoutMs: 5000,
+    retryPolicy: { maxRetries: 3 }
+  });
+
+  const { data, loading, error } = useApiQuery<User>(client, '/users/1');
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+  if (!data) return null;
+
+  return (
+    <div>
+      <h1>{data.name}</h1>
+      <p>{data.email}</p>
+    </div>
+  );
+}
+```
+
+### React with QueryClient
+
+```typescript
+import { useState, useEffect, createContext, useContext } from 'react';
+import { createApiClient, createQueryClient } from 'bytekit';
+import type { QueryClient } from 'bytekit';
+
+// Create context
+const QueryClientContext = createContext<QueryClient | null>(null);
+
+// Provider component
+export function QueryClientProvider({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => {
+    const apiClient = createApiClient({
+      baseUrl: 'https://api.example.com'
+    });
+    
+    return createQueryClient(apiClient, {
+      defaultStaleTime: 5000,
+      defaultCacheTime: 300000
+    });
+  });
+
+  return (
+    <QueryClientContext.Provider value={queryClient}>
+      {children}
+    </QueryClientContext.Provider>
+  );
+}
+
+// Hook to use query client
+function useQueryClient() {
+  const context = useContext(QueryClientContext);
+  if (!context) {
+    throw new Error('useQueryClient must be used within QueryClientProvider');
+  }
+  return context;
+}
+
+// Query hook
+function useQuery<T>(queryKey: string[], path: string) {
+  const queryClient = useQueryClient();
+  const [state, setState] = useState<{
+    data: T | null;
+    loading: boolean;
+    error: Error | null;
+  }>({ data: null, loading: true, error: null });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchData() {
+      try {
+        setState({ data: null, loading: true, error: null });
+        const result = await queryClient.query<T>({
+          queryKey,
+          path
+        });
+        if (!cancelled) {
+          setState({ data: result, loading: false, error: null });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setState({
+            data: null,
+            loading: false,
+            error: err instanceof Error ? err : new Error('Unknown error')
+          });
+        }
+      }
+    }
+
+    fetchData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [queryClient, JSON.stringify(queryKey), path]);
+
+  return state;
+}
+
+// Mutation hook
+function useMutation<T>(path: string, method: 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'POST') {
+  const queryClient = useQueryClient();
+  const [state, setState] = useState<{
+    loading: boolean;
+    error: Error | null;
+  }>({ loading: false, error: null });
+
+  const mutate = async (data: unknown, invalidateQueries?: string[][]) => {
+    try {
+      setState({ loading: true, error: null });
+      const result = await queryClient.mutate<T>({
+        path,
+        method,
+        body: data,
+        invalidateQueries
+      });
+      setState({ loading: false, error: null });
+      return result;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Unknown error');
+      setState({ loading: false, error });
+      throw error;
+    }
+  };
+
+  return { mutate, ...state };
+}
+
+// Usage
+function UserProfile({ userId }: { userId: string }) {
+  const { data: user, loading, error } = useQuery<User>(
+    ['user', userId],
+    `/users/${userId}`
+  );
+
+  const { mutate: updateUser, loading: updating } = useMutation<User>(
+    `/users/${userId}`,
+    'PUT'
+  );
+
+  const handleUpdate = async () => {
+    await updateUser(
+      { name: 'New Name' },
+      [['user', userId], ['users']]
+    );
+  };
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  if (!user) return null;
+
+  return (
+    <div>
+      <h1>{user.name}</h1>
+      <button onClick={handleUpdate} disabled={updating}>
+        Update
+      </button>
+    </div>
+  );
+}
+```
+
+## Vue
+
+### Composables Pattern
+
+```typescript
+import { ref, onMounted, onUnmounted, type Ref } from 'vue';
+import { createApiClient } from 'bytekit';
+import type { ApiClient } from 'bytekit';
+
+// Create API client composable
+export function useApiClient(config: Parameters<typeof createApiClient>[0]) {
+  const client = createApiClient(config);
+  return client;
+}
+
+// Create query composable
+export function useApiQuery<T>(
+  client: ApiClient,
+  url: string
+) {
+  const data: Ref<T | null> = ref(null);
+  const loading = ref(true);
+  const error: Ref<string | null> = ref(null);
+  let cancelled = false;
+
+  async function fetchData() {
+    try {
+      loading.value = true;
+      const response = await client.get(url);
+      if (!cancelled) {
+        data.value = response as T;
+        error.value = null;
+      }
+    } catch (err) {
+      if (!cancelled) {
+        error.value =
+          err instanceof Error ? err.message : 'Unknown error';
+      }
+    } finally {
+      if (!cancelled) {
+        loading.value = false;
+      }
+    }
+  }
+
+  onMounted(() => {
+    fetchData();
+  });
+
+  onUnmounted(() => {
+    cancelled = true;
+  });
+
+  return { data, loading, error, refetch: fetchData };
+}
+```
+
+### Vue Component Usage
+
+```vue
+<script setup lang="ts">
+import { useApiClient, useApiQuery } from './composables/useApi';
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+const client = useApiClient({
+  baseUrl: 'https://jsonplaceholder.typicode.com',
+  timeoutMs: 5000,
+  retryPolicy: { maxRetries: 3 }
+});
+
+const { data: user, loading, error, refetch } = useApiQuery<User>(
+  client,
+  '/users/1'
+);
+</script>
+
+<template>
+  <div>
+    <div v-if="loading">Loading...</div>
+    <div v-else-if="error">Error: {{ error }}</div>
+    <div v-else-if="user">
+      <h1>{{ user.name }}</h1>
+      <p>{{ user.email }}</p>
+      <button @click="refetch">Refresh</button>
+    </div>
+  </div>
+</template>
+```
+
+## Svelte
+
+### Store Pattern
+
+```typescript
+import { writable } from 'svelte/store';
+import { createApiClient } from 'bytekit';
+import type { ApiClient } from 'bytekit';
+
+// Create API client store
+export function createApiStore(config: Parameters<typeof createApiClient>[0]) {
+  const client = createApiClient(config);
+  return client;
+}
+
+interface QueryState<T> {
+  data: T | null;
+  loading: boolean;
+  error: string | null;
+}
+
+// Create query store
+export function createQueryStore<T>(
+  client: ApiClient,
+  url: string
+) {
+  const { subscribe, set, update } = writable<QueryState<T>>({
+    data: null,
+    loading: true,
+    error: null
+  });
+
+  async function fetch() {
+    update((state) => ({ ...state, loading: true }));
+
+    try {
+      const data = await client.get(url);
+      set({ data: data as T, loading: false, error: null });
+    } catch (err) {
+      set({
+        data: null,
+        loading: false,
+        error: err instanceof Error ? err.message : 'Unknown error'
+      });
+    }
+  }
+
+  fetch();
+
+  return {
+    subscribe,
+    refetch: fetch
+  };
+}
+```
+
+### Svelte Component Usage
+
+```svelte
+<script lang="ts">
+  import { createApiStore, createQueryStore } from './stores/api';
+
+  interface User {
+    id: number;
+    name: string;
+    email: string;
+  }
+
+  const client = createApiStore({
+    baseUrl: 'https://jsonplaceholder.typicode.com',
+    timeoutMs: 5000
+  });
+
+  const userStore = createQueryStore<User>(client, '/users/1');
+</script>
+
+{#if $userStore.loading}
+  <div>Loading...</div>
+{:else if $userStore.error}
+  <div>Error: {$userStore.error}</div>
+{:else if $userStore.data}
+  <div>
+    <h1>{$userStore.data.name}</h1>
+    <p>{$userStore.data.email}</p>
+    <button on:click={() => userStore.refetch()}>Refresh</button>
+  </div>
+{/if}
+```
+
+## Solid.js
+
+```typescript
+import { createSignal, createResource, createContext, useContext } from 'solid-js';
+import { createApiClient, createQueryClient } from 'bytekit';
+
+// Create context
+const QueryClientContext = createContext();
+
+// Provider
+export function QueryClientProvider(props) {
+  const apiClient = createApiClient({
+    baseUrl: 'https://api.example.com'
+  });
+  
+  const queryClient = createQueryClient(apiClient, {
+    defaultStaleTime: 5000
+  });
+
+  return (
+    <QueryClientContext.Provider value={queryClient}>
+      {props.children}
+    </QueryClientContext.Provider>
+  );
+}
+
+// Hook
+function useQuery(queryKey, path) {
+  const queryClient = useContext(QueryClientContext);
+  
+  const [data] = createResource(async () => {
+    return await queryClient.query({
+      queryKey,
+      path
+    });
+  });
+
+  return data;
+}
+
+// Usage
+function UserProfile(props) {
+  const user = useQuery(['user', props.userId], `/users/${props.userId}`);
+
+  return (
+    <div>
+      {user.loading && <div>Loading...</div>}
+      {user.error && <div>Error: {user.error.message}</div>}
+      {user() && <h1>{user().name}</h1>}
+    </div>
+  );
+}
+```
+
+## Node.js / Express
+
+```typescript
+import express from 'express';
+import { createApiClient, createLogger } from 'bytekit';
+
+const app = express();
+
+// Create logger
+const logger = createLogger({
+  namespace: 'api',
+  level: 'debug'
+});
+
+// Create API client for external service
+const externalApi = createApiClient({
+  baseUrl: 'https://external-api.example.com',
+  defaultHeaders: {
+    'Authorization': `Bearer ${process.env.API_KEY}`
+  },
+  logger,
+  retryPolicy: {
+    maxRetries: 3
+  }
+});
+
+// Route handler
+app.get('/users/:id', async (req, res) => {
+  try {
+    const user = await externalApi.get(`/users/${req.params.id}`);
+    res.json(user);
+  } catch (error) {
+    logger.error('Failed to fetch user', { userId: req.params.id }, error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.listen(3000, () => {
+  logger.info('Server started', { port: 3000 });
+});
+```
+
+## Next.js
+
+### App Router (Server Components)
+
+```typescript
+import { createApiClient } from 'bytekit';
+
+const apiClient = createApiClient({
+  baseUrl: 'https://api.example.com'
+});
+
+export default async function UserPage({ params }: { params: { id: string } }) {
+  const user = await apiClient.get(`/users/${params.id}`);
+
+  return (
+    <div>
+      <h1>{user.name}</h1>
+      <p>{user.email}</p>
+    </div>
+  );
+}
+```
+
+### Client Components
+
+```typescript
+'use client';
+
+import { useApiClient, useApiQuery } from '@/hooks/useApi';
+
+export default function UserProfile({ userId }: { userId: string }) {
+  const client = useApiClient({
+    baseUrl: 'https://api.example.com'
+  });
+
+  const { data, loading, error } = useApiQuery(client, `/users/${userId}`);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+
+  return <div>{data.name}</div>;
+}
+```
+
+## Best Practices
+
+### 1. Singleton API Client
+
+Create one API client instance per API:
+
+```typescript
+// lib/api.ts
+import { createApiClient } from 'bytekit';
+
+export const apiClient = createApiClient({
+  baseUrl: process.env.NEXT_PUBLIC_API_URL,
+  defaultHeaders: {
+    'Content-Type': 'application/json'
+  }
+});
+```
+
+### 2. Error Boundaries
+
+Wrap components with error boundaries:
+
+```typescript
+import { ErrorBoundary } from 'react-error-boundary';
+
+function App() {
+  return (
+    <ErrorBoundary fallback={<div>Something went wrong</div>}>
+      <UserProfile userId="1" />
+    </ErrorBoundary>
+  );
+}
+```
+
+### 3. Loading States
+
+Always handle loading and error states:
+
+```typescript
+const { data, loading, error } = useQuery(...);
+
+if (loading) return <Spinner />;
+if (error) return <ErrorMessage error={error} />;
+if (!data) return null;
+
+return <div>{data.name}</div>;
+```
+
+### 4. Type Safety
+
+Define interfaces for all API responses:
+
+```typescript
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+const user = await client.get<User>('/users/1');
+// TypeScript knows user is of type User
+```
+
+## Related
+
+- [ApiClient Guide](/guides/api-client)
+- [State Management](/guides/state-management)
+- [Best Practices](/guides/best-practices)

@@ -1,0 +1,250 @@
+---
+title: Installation
+description: Install ByteKit and configure your TypeScript project
+---
+
+# Installation
+
+Get started with ByteKit by installing it in your project. ByteKit works with Node.js 18+ and all modern browsers.
+
+## Package installation
+
+Install ByteKit using your preferred package manager:
+
+<CodeGroup>
+
+```bash npm
+npm install bytekit
+```
+
+```bash yarn
+yarn add bytekit
+```
+
+```bash pnpm
+pnpm add bytekit
+```
+
+</CodeGroup>
+
+<Note>
+ByteKit has **zero dependencies** and uses native `fetch` for HTTP operations, keeping your bundle size minimal.
+</Note>
+
+## Requirements
+
+### Node.js version
+
+ByteKit requires **Node.js 18 or higher**. This is because ByteKit uses native `fetch` which was introduced in Node.js 18.
+
+```bash
+# Check your Node.js version
+node --version
+```
+
+If you're using an older version, you'll need to upgrade:
+
+<CodeGroup>
+
+```bash nvm
+# Using nvm
+nvm install 18
+nvm use 18
+```
+
+```bash direct
+# Or download from nodejs.org
+# https://nodejs.org/
+```
+
+</CodeGroup>
+
+### Browser support
+
+ByteKit works in all modern browsers that support:
+- Native `fetch` API
+- ES2020+ features
+- ESM modules
+
+This includes:
+- Chrome 90+
+- Firefox 88+
+- Safari 14.1+
+- Edge 90+
+
+## TypeScript configuration
+
+For the best experience with TypeScript projects, configure your `tsconfig.json` with these recommended settings:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"]
+  }
+}
+```
+
+<Tip>
+ByteKit is fully typed and provides excellent IntelliSense support out of the box. No need for `@types` packages!
+</Tip>
+
+### Key settings explained
+
+- **`target: "ES2020"`** - ByteKit uses modern JavaScript features
+- **`module: "ESNext"`** - ByteKit is 100% ESM
+- **`moduleResolution: "bundler"`** - Works with Vite, webpack, etc.
+- **`strict: true`** - Enables all strict type checking (recommended)
+
+## Verification
+
+Verify your installation by creating a simple test file:
+
+<Steps>
+  <Step title="Create a test file">
+    Create a new file called `test.ts` or `test.js`:
+
+    ```typescript test.ts
+    import { ApiClient, StringUtils, DateUtils } from "bytekit";
+
+    console.log("ByteKit installed successfully!");
+
+    // Test string utilities
+    const slug = StringUtils.slugify("Hello World!");
+    console.log("Slug:", slug); // Output: hello-world
+
+    // Test date utilities
+    const formatted = DateUtils.format(new Date(), "en-US");
+    console.log("Formatted date:", formatted);
+
+    // Test API client
+    const api = new ApiClient({ baseUrl: "https://jsonplaceholder.typicode.com" });
+    console.log("API client created:", api.getBaseUrl());
+    ```
+  </Step>
+
+  <Step title="Run the test">
+    Execute your test file:
+
+    <CodeGroup>
+
+    ```bash Node.js (ESM)
+    node test.js
+    ```
+
+    ```bash tsx
+    npx tsx test.ts
+    ```
+
+    ```bash ts-node
+    npx ts-node --esm test.ts
+    ```
+
+    </CodeGroup>
+  </Step>
+
+  <Step title="Check the output">
+    You should see output similar to:
+
+    ```
+    ByteKit installed successfully!
+    Slug: hello-world
+    Formatted date: 3/4/2026
+    API client created: https://jsonplaceholder.typicode.com
+    ```
+  </Step>
+</Steps>
+
+<Note>
+If you're using a bundler like Vite, webpack, or Rollup, no additional configuration is needed. ByteKit works out of the box with all modern bundlers.
+</Note>
+
+## Global CLI installation (optional)
+
+ByteKit includes a CLI tool for generating TypeScript types from Swagger/OpenAPI specs:
+
+```bash
+npm install -g bytekit
+```
+
+Once installed, you can use the CLI commands:
+
+```bash
+# Generate a CRUD service
+bytekit create users
+
+# Generate types from OpenAPI/Swagger
+bytekit types https://api.example.com/swagger.json
+```
+
+<Warning>
+The CLI requires Node.js 18+ and should be installed globally if you want to use it from anywhere in your terminal.
+</Warning>
+
+## Import strategies
+
+ByteKit supports multiple import strategies to optimize your bundle size:
+
+### Default imports (convenience)
+
+Import everything from the main package:
+
+```typescript
+import { ApiClient, Logger, DateUtils, StringUtils } from "bytekit";
+```
+
+### Modular imports (tree-shaking)
+
+Import specific modules to reduce bundle size:
+
+```typescript
+import { ApiClient } from "bytekit/api-client";
+import { Logger } from "bytekit/logger";
+import { DateUtils } from "bytekit/date-utils";
+import { StringUtils } from "bytekit/string-utils";
+```
+
+<Tip>
+Modular imports are recommended for production builds as they enable better tree-shaking and smaller bundle sizes.
+</Tip>
+
+## Troubleshooting
+
+### Module not found errors
+
+If you see "Cannot find module 'bytekit'" errors:
+
+1. Ensure you've installed the package: `npm install bytekit`
+2. Clear your package manager cache:
+   - npm: `npm cache clean --force`
+   - yarn: `yarn cache clean`
+   - pnpm: `pnpm store prune`
+3. Delete `node_modules` and reinstall: `rm -rf node_modules && npm install`
+
+### TypeScript errors
+
+If TypeScript can't find types:
+
+1. Ensure `moduleResolution` is set to `"bundler"` or `"node"`
+2. Make sure `skipLibCheck` is set to `true`
+3. Try restarting your TypeScript server in your editor
+
+### Fetch is not defined
+
+If you see "fetch is not defined" in Node.js:
+
+1. Upgrade to Node.js 18 or higher
+2. Or use a fetch polyfill for older versions
+
+## Next steps
+
+<Card title="Quick start guide" icon="rocket" href="/quickstart">
+  Now that you have ByteKit installed, follow our quick start guide to learn the basics
+</Card>

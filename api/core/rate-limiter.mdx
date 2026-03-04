@@ -1,0 +1,51 @@
+---
+title: RateLimiter
+description: Rate limiting for API requests
+---
+
+## Overview
+
+RateLimiter provides token bucket rate limiting for controlling request frequency.
+
+## Import
+
+```typescript
+import { RateLimiter } from "bytekit";
+// or
+import { RateLimiter } from "bytekit/rate-limiter";
+```
+
+## Usage
+
+```typescript
+const limiter = new RateLimiter({
+  maxTokens: 10,
+  refillRate: 1,
+  refillIntervalMs: 1000
+});
+
+await limiter.acquire(); // Wait for token
+// Make request
+```
+
+## Integration with ApiClient
+
+```typescript
+import { ApiClient, RateLimiter } from "bytekit";
+
+const limiter = new RateLimiter({ maxTokens: 10, refillRate: 1 });
+
+const api = new ApiClient({
+  baseUrl: "https://api.example.com",
+  interceptors: {
+    request: async (url, init) => {
+      await limiter.acquire();
+      return [url, init];
+    }
+  }
+});
+```
+
+## See Also
+
+- [ApiClient](/api/core/api-client)

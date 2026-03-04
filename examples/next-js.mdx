@@ -1,0 +1,512 @@
+---
+title: "Next.js Integration"
+description: "Learn how to integrate ByteKit with Next.js for both client and server components"
+---
+
+## Overview
+
+ByteKit works seamlessly with Next.js, supporting both the App Router and Pages Router. This guide covers client components, server components, API routes, and Server Actions.
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install bytekit
+```
+
+```bash yarn
+yarn add bytekit
+```
+
+```bash pnpm
+pnpm add bytekit
+```
+</CodeGroup>
+
+## App Router (Recommended)
+
+### Client Components
+
+Use ByteKit in client components with the `"use client"` directive:
+
+```tsx
+"use client";
+
+import { useState, useEffect } from "react";
+import { createApiClient } from "bytekit";
+
+interface User {
+    id: number;
+    name: string;
+    email: string;
+}
+
+function useApiClient(config: Parameters<typeof createApiClient>[0]) {
+    const [client] = useState(() => createApiClient(config));
+    return client;
+}
+
+export default function UserProfile({ userId }: { userId: string }) {
+    const client = useApiClient({
+        baseUrl: "https://api.example.com",
+        timeoutMs: 5000,
+        retryPolicy: { maxRetries: 3 },
+    });
+
+    const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function fetchUser() {
+            try {
+                const data = await client.get(`/users/${userId}`);
+                if (!cancelled) {
+                    setUser(data as User);
+                }
+            } catch (error) {
+                console.error("Failed to fetch user:", error);
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        fetchUser();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [client, userId]);
+
+    if (loading) return <div>Loading...</div>;
+    if (!user) return <div>User not found</div>;
+
+    return (
+        <div>
+            <h1>{user.name}</h1>
+            <p>{user.email}</p>
+        </div>
+    );
+}
+```
+
+### Server Components
+
+Use ByteKit directly in Server Components for data fetching:
+
+```tsx
+import { createApiClient } from "bytekit";
+
+interface User {
+    id: number;
+    name: string;
+    email: string;
+}
+
+const apiClient = createApiClient({
+    baseUrl: "https://api.example.com",
+    timeoutMs: 5000,
+});
+
+export default async function UserPage({
+    params,
+}: {
+    params: { id: string };
+}) {
+    const user = (await apiClient.get(`/users/${params.id}`)) as User;
+
+    return (
+        <div>
+            <h1>{user.name}</h1>
+            <p>{user.email}</p>
+        </div>
+    );
+}
+```
+
+<Note>
+Server Components can directly use async/await without hooks. This provides better performance and SEO.
+</Note>
+
+### Server Actions
+
+Use ByteKit in Server Actions for mutations:
+
+```tsx
+"use server";
+
+import { createApiClient } from "bytekit";
+import { revalidatePath } from "next/cache";
+
+const apiClient = createApiClient({
+    baseUrl: "https://api.example.com",
+});
+
+interface CreateUserData {
+    name: string;
+    email: string;
+}
+
+export async function createUser(formData: FormData) {
+    const data: CreateUserData = {
+        name: formData.get("name") as string,
+        email: formData.get("email") as string,
+    };
+
+    try {
+        const newUser = await apiClient.post("/users", data);
+        revalidatePath("/users");
+        return { success: true, user: newUser };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+        };
+    }
+}
+```
+
+### Using Server Actions in Client Components
+
+```tsx
+"use client";
+
+import { useFormState, useFormStatus } from "react-dom";
+import { createUser } from "./actions";
+
+function SubmitButton() {
+    const { pending } = useFormStatus();
+    return (
+        <button type="submit" disabled={pending}>
+            {pending ? "Creating..." : "Create User"}
+        </button>
+    );
+}
+
+export default function CreateUserForm() {
+    const [state, formAction] = useFormState(createUser, null);
+
+    return (
+        <form action={formAction}>
+            <input name="name" placeholder="Name" required />
+            <input name="email" type="email" placeholder="Email" required />
+            {state?.error && <p style={{ color: "red" }}>{state.error}</p>}
+            {state?.success && <p style={{ color: "green" }}>User created!</p>}
+            <SubmitButton />
+        </form>
+    );
+}
+```
+
+## Pages Router
+
+### getServerSideProps
+
+Fetch data on every request:
+
+```tsx
+import { GetServerSideProps } from "next";
+import { createApiClient } from "bytekit";
+
+interface User {
+    id: number;
+    name: string;
+    email: string;
+}
+
+interface Props {
+    user: User;
+}
+
+const apiClient = createApiClient({
+    baseUrl: "https://api.example.com",
+});
+
+export const getServerSideProps: GetServerSideProps<Props> = async (
+    context
+) => {
+    const { id } = context.params!;
+
+    try {
+        const user = (await apiClient.get(`/users/${id}`)) as User;
+        return { props: { user } };
+    } catch (error) {
+        return { notFound: true };
+    }
+};
+
+export default function UserPage({ user }: Props) {
+    return (
+        <div>
+            <h1>{user.name}</h1>
+            <p>{user.email}</p>
+        </div>
+    );
+}
+```
+
+### getStaticProps
+
+Fetch data at build time:
+
+```tsx
+import { GetStaticProps, GetStaticPaths } from "next";
+import { createApiClient } from "bytekit";
+
+interface User {
+    id: number;
+    name: string;
+    email: string;
+}
+
+const apiClient = createApiClient({
+    baseUrl: "https://api.example.com",
+});
+
+export const getStaticPaths: GetStaticPaths = async () => {
+    const users = (await apiClient.get("/users")) as User[];
+    const paths = users.map((user) => ({
+        params: { id: user.id.toString() },
+    }));
+
+    return { paths, fallback: "blocking" };
+};
+
+export const getStaticProps: GetStaticProps = async (context) => {
+    const { id } = context.params!;
+    const user = (await apiClient.get(`/users/${id}`)) as User;
+
+    return {
+        props: { user },
+        revalidate: 60, // Revalidate every 60 seconds
+    };
+};
+
+export default function UserPage({ user }: { user: User }) {
+    return (
+        <div>
+            <h1>{user.name}</h1>
+            <p>{user.email}</p>
+        </div>
+    );
+}
+```
+
+### API Routes
+
+Create API endpoints with ByteKit:
+
+```ts
+// pages/api/users/[id].ts
+import type { NextApiRequest, NextApiResponse } from "next";
+import { createApiClient } from "bytekit";
+
+const apiClient = createApiClient({
+    baseUrl: "https://api.example.com",
+});
+
+export default async function handler(
+    req: NextApiRequest,
+    res: NextApiResponse
+) {
+    const { id } = req.query;
+
+    if (req.method === "GET") {
+        try {
+            const user = await apiClient.get(`/users/${id}`);
+            res.status(200).json(user);
+        } catch (error) {
+            res.status(500).json({ error: "Failed to fetch user" });
+        }
+    } else if (req.method === "PUT") {
+        try {
+            const updatedUser = await apiClient.put(`/users/${id}`, req.body);
+            res.status(200).json(updatedUser);
+        } catch (error) {
+            res.status(500).json({ error: "Failed to update user" });
+        }
+    } else {
+        res.setHeader("Allow", ["GET", "PUT"]);
+        res.status(405).end(`Method ${req.method} Not Allowed`);
+    }
+}
+```
+
+## Using QueryClient
+
+Integrate ByteKit's QueryClient for advanced caching:
+
+```tsx
+"use client";
+
+import { useState, useEffect } from "react";
+import { createApiClient, createQueryClient } from "bytekit";
+
+const apiClient = createApiClient({
+    baseUrl: "https://api.example.com",
+});
+
+const queryClient = createQueryClient(apiClient, {
+    defaultStaleTime: 5000,
+    defaultCacheTime: 60000,
+});
+
+export function useQuery<T>(queryKey: string[], path: string) {
+    const [data, setData] = useState<T | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function fetch() {
+            try {
+                setLoading(true);
+                const result = await queryClient.query({ queryKey, path });
+                if (!cancelled) {
+                    setData(result as T);
+                    setError(null);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setError(err as Error);
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        fetch();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [queryKey.join(","), path]);
+
+    return { data, loading, error };
+}
+```
+
+## Environment Variables
+
+Use environment variables for API configuration:
+
+```env
+# .env.local
+NEXT_PUBLIC_API_URL=https://api.example.com
+API_KEY=your-secret-key
+```
+
+```ts
+// lib/api.ts
+import { createApiClient } from "bytekit";
+
+export const apiClient = createApiClient({
+    baseUrl: process.env.NEXT_PUBLIC_API_URL!,
+    headers: {
+        Authorization: `Bearer ${process.env.API_KEY}`,
+    },
+});
+```
+
+<Warning>
+Use `NEXT_PUBLIC_` prefix for client-side variables only. Keep sensitive keys (like API tokens) server-side.
+</Warning>
+
+## Best Practices
+
+<AccordionGroup>
+<Accordion title="1. Use Server Components When Possible">
+Server Components provide better performance and SEO:
+
+```tsx
+// ✅ Good - Server Component
+export default async function Page() {
+    const data = await apiClient.get('/data');
+    return <div>{data}</div>;
+}
+
+// ❌ Avoid - Client Component for static data
+"use client";
+export default function Page() {
+    const [data, setData] = useState(null);
+    useEffect(() => { /* fetch */ }, []);
+    return <div>{data}</div>;
+}
+```
+</Accordion>
+
+<Accordion title="2. Revalidate Cached Data">
+Use Next.js revalidation for up-to-date data:
+
+```tsx
+export const revalidate = 60; // Revalidate every 60 seconds
+
+export default async function Page() {
+    const data = await apiClient.get('/data');
+    return <div>{data}</div>;
+}
+```
+</Accordion>
+
+<Accordion title="3. Error Handling">
+Implement proper error boundaries:
+
+```tsx
+// app/error.tsx
+"use client";
+
+export default function Error({
+    error,
+    reset,
+}: {
+    error: Error;
+    reset: () => void;
+}) {
+    return (
+        <div>
+            <h2>Something went wrong!</h2>
+            <p>{error.message}</p>
+            <button onClick={reset}>Try again</button>
+        </div>
+    );
+}
+```
+</Accordion>
+
+<Accordion title="4. Type Safety">
+Use TypeScript for type-safe API responses:
+
+```tsx
+interface User {
+    id: number;
+    name: string;
+}
+
+const user = await apiClient.get('/users/1') as User;
+// user is typed as User
+```
+</Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="API Client Guide" icon="plug" href="/guides/api-client">
+  Learn more about ApiClient configuration
+</Card>
+<Card title="State Management" icon="database" href="/guides/state-management">
+  Explore QueryClient for advanced caching
+</Card>
+<Card title="TypeScript Support" icon="code" href="/cli/type-generation">
+  Generate types from OpenAPI specs
+</Card>
+<Card title="Error Handling" icon="triangle-exclamation" href="/examples/error-handling">
+  Best practices for error handling
+</Card>
+</CardGroup>

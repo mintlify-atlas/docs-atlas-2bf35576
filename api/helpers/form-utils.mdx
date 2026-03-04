@@ -1,0 +1,671 @@
+---
+title: "Form Utils"
+description: "Framework-agnostic form validation and management utilities"
+---
+
+## Overview
+
+Form Utils provides comprehensive form handling with built-in validators, state management, and framework integration support. It's designed to work with any JavaScript framework or vanilla JS.
+
+## Type Definitions
+
+### ValidatorFn
+
+A validator function that returns `true` for valid values or an error message string.
+
+```typescript
+type ValidatorFn<T = unknown> = (value: T) => boolean | string;
+type AsyncValidatorFn<T = unknown> = (value: T) => Promise<boolean | string>;
+```
+
+## Interfaces
+
+### FieldRule
+
+Validation rules for a form field.
+
+```typescript
+interface FieldRule<T = unknown> {
+  required?: boolean | string;          // Required field
+  minLength?: number | string;          // Minimum string length
+  maxLength?: number | string;          // Maximum string length
+  min?: number | string;                // Minimum number value
+  max?: number | string;                // Maximum number value
+  pattern?: RegExp | string;            // Regex pattern
+  email?: boolean | string;             // Email validation
+  url?: boolean | string;               // URL validation
+  match?: string;                       // Match another field
+  custom?: ValidatorFn<T> | ValidatorFn<T>[];
+  asyncCustom?: AsyncValidatorFn<T> | AsyncValidatorFn<T>[];
+}
+```
+
+### FieldError
+
+Represents a validation error.
+
+```typescript
+interface FieldError {
+  field: string;
+  message: string;
+  rule?: string;
+}
+```
+
+### FormState
+
+Current state of the form.
+
+```typescript
+interface FormState<T extends Record<string, unknown>> {
+  values: T;                          // Current field values
+  errors: Record<string, string>;     // Validation errors
+  touched: Record<string, boolean>;   // Touched fields
+  dirty: Record<string, boolean>;     // Modified fields
+  isValidating: boolean;              // Currently validating
+  isValid: boolean;                   // Form is valid
+}
+```
+
+### FormConfig
+
+Configuration for creating a form.
+
+```typescript
+interface FormConfig<T extends Record<string, unknown>> {
+  initialValues: T;
+  rules?: Record<keyof T, FieldRule>;
+  onSubmit?: (values: T) => void | Promise<void>;
+  onError?: (errors: FieldError[]) => void;
+  validateOnChange?: boolean;         // Default: false
+  validateOnBlur?: boolean;           // Default: false
+}
+```
+
+## Built-in Validators
+
+The `Validators` object provides commonly used validation functions:
+
+### required
+
+```typescript
+Validators.required(value: unknown, message?: string): boolean | string
+```
+
+**Example:**
+```typescript
+import { Validators } from '@bytekit/utils';
+
+const result = Validators.required('', 'Name is required');
+// Returns: "Name is required"
+
+const result2 = Validators.required('John');
+// Returns: true
+```
+
+### minLength / maxLength
+
+```typescript
+Validators.minLength(value: unknown, min: number, message?: string): boolean | string
+Validators.maxLength(value: unknown, max: number, message?: string): boolean | string
+```
+
+**Example:**
+```typescript
+Validators.minLength('abc', 5); // "Minimum length is 5"
+Validators.maxLength('abcdef', 5); // "Maximum length is 5"
+```
+
+### min / max
+
+```typescript
+Validators.min(value: unknown, min: number, message?: string): boolean | string
+Validators.max(value: unknown, max: number, message?: string): boolean | string
+```
+
+**Example:**
+```typescript
+Validators.min(10, 18); // "Minimum value is 18"
+Validators.max(100, 50); // "Maximum value is 50"
+```
+
+### email
+
+```typescript
+Validators.email(value: unknown, message?: string): boolean | string
+```
+
+**Example:**
+```typescript
+Validators.email('invalid-email'); // "Invalid email address"
+Validators.email('user@example.com'); // true
+```
+
+### url
+
+```typescript
+Validators.url(value: unknown, message?: string): boolean | string
+```
+
+**Example:**
+```typescript
+Validators.url('not-a-url'); // "Invalid URL"
+Validators.url('https://example.com'); // true
+```
+
+### pattern
+
+```typescript
+Validators.pattern(value: unknown, pattern: RegExp, message?: string): boolean | string
+```
+
+**Example:**
+```typescript
+const phonePattern = /^\d{3}-\d{3}-\d{4}$/;
+Validators.pattern('123-456-7890', phonePattern); // true
+Validators.pattern('invalid', phonePattern); // "Invalid format"
+```
+
+### match
+
+```typescript
+Validators.match(value: unknown, other: unknown, message?: string): boolean | string
+```
+
+**Example:**
+```typescript
+Validators.match('password123', 'password123'); // true
+Validators.match('password123', 'different'); // "Fields do not match"
+```
+
+## Class: FormUtils
+
+### Constructor
+
+Create a new form instance.
+
+```typescript
+const form = new FormUtils<T>(config: FormConfig<T>)
+```
+
+**Example:**
+```typescript
+import { FormUtils } from '@bytekit/utils';
+
+interface LoginForm {
+  email: string;
+  password: string;
+}
+
+const form = new FormUtils<LoginForm>({
+  initialValues: {
+    email: '',
+    password: ''
+  },
+  rules: {
+    email: {
+      required: true,
+      email: true
+    },
+    password: {
+      required: true,
+      minLength: 8
+    }
+  },
+  onSubmit: async (values) => {
+    await login(values.email, values.password);
+  }
+});
+```
+
+## Methods
+
+### getValue / setValue
+
+Get or set field values.
+
+```typescript
+getValue<K extends keyof T>(field: K): T[K]
+setValue<K extends keyof T>(field: K, value: T[K]): void
+setValues(values: Partial<T>): void
+```
+
+**Example:**
+```typescript
+const email = form.getValue('email');
+
+form.setValue('email', 'user@example.com');
+
+form.setValues({
+  email: 'user@example.com',
+  password: 'secret123'
+});
+```
+
+### validateField / validate
+
+Validate individual fields or the entire form.
+
+```typescript
+async validateField<K extends keyof T>(field: K): Promise<string | null>
+async validate(): Promise<FieldError[]>
+```
+
+**Example:**
+```typescript
+// Validate single field
+const error = await form.validateField('email');
+if (error) {
+  console.error('Email validation failed:', error);
+}
+
+// Validate entire form
+const errors = await form.validate();
+if (errors.length > 0) {
+  console.error('Form has errors:', errors);
+}
+```
+
+### submit
+
+Validate and submit the form.
+
+```typescript
+async submit(): Promise<boolean>
+```
+
+**Returns:** `true` if validation passed and submission succeeded
+
+**Example:**
+```typescript
+const success = await form.submit();
+if (success) {
+  console.log('Form submitted successfully');
+} else {
+  console.log('Form validation failed');
+}
+```
+
+### reset
+
+Reset form to initial state.
+
+```typescript
+reset(): void
+```
+
+**Example:**
+```typescript
+form.reset();
+```
+
+### getState
+
+Get complete form state.
+
+```typescript
+getState(): FormState<T>
+```
+
+**Example:**
+```typescript
+const state = form.getState();
+console.log('Form values:', state.values);
+console.log('Form errors:', state.errors);
+console.log('Form valid:', state.isValid);
+```
+
+### getFieldState
+
+Get state for a specific field.
+
+```typescript
+getFieldState<K extends keyof T>(field: K): {
+  value: T[K];
+  touched: boolean;
+  dirty: boolean;
+  error: string;
+}
+```
+
+**Example:**
+```typescript
+const emailState = form.getFieldState('email');
+console.log('Value:', emailState.value);
+console.log('Touched:', emailState.touched);
+console.log('Error:', emailState.error);
+```
+
+### createBinding
+
+Create bindings for framework integration.
+
+```typescript
+createBinding<K extends keyof T>(field: K): {
+  value: T[K];
+  onChange: (value: T[K]) => void;
+  onBlur: () => void;
+  error: string;
+  touched: boolean;
+  dirty: boolean;
+}
+```
+
+**Example:**
+```typescript
+// React integration
+const emailBinding = form.createBinding('email');
+
+<input
+  type="email"
+  value={emailBinding.value}
+  onChange={(e) => emailBinding.onChange(e.target.value)}
+  onBlur={emailBinding.onBlur}
+/>
+{emailBinding.touched && emailBinding.error && (
+  <span className="error">{emailBinding.error}</span>
+)}
+```
+
+## Helper Function: createForm
+
+Convenience function to create a form.
+
+```typescript
+function createForm<T extends Record<string, unknown>>(
+  config: FormConfig<T>
+): FormUtils<T>
+```
+
+**Example:**
+```typescript
+import { createForm } from '@bytekit/utils';
+
+const form = createForm({
+  initialValues: { email: '', password: '' },
+  rules: { /* ... */ }
+});
+```
+
+## Complete Examples
+
+### Registration Form
+
+```typescript
+import { createForm, Validators } from '@bytekit/utils';
+
+interface RegistrationForm {
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  age: number;
+  terms: boolean;
+}
+
+const form = createForm<RegistrationForm>({
+  initialValues: {
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    age: 0,
+    terms: false
+  },
+  rules: {
+    username: {
+      required: 'Username is required',
+      minLength: 3,
+      maxLength: 20,
+      pattern: /^[a-zA-Z0-9_]+$/,
+      asyncCustom: async (value) => {
+        // Check if username is available
+        const available = await checkUsernameAvailability(value);
+        return available ? true : 'Username is already taken';
+      }
+    },
+    email: {
+      required: true,
+      email: 'Please enter a valid email'
+    },
+    password: {
+      required: true,
+      minLength: 8,
+      custom: (value) => {
+        if (!/[A-Z]/.test(value)) {
+          return 'Password must contain an uppercase letter';
+        }
+        if (!/[0-9]/.test(value)) {
+          return 'Password must contain a number';
+        }
+        return true;
+      }
+    },
+    confirmPassword: {
+      required: true,
+      match: 'password'
+    },
+    age: {
+      required: true,
+      min: 18,
+      max: 120
+    },
+    terms: {
+      custom: (value) => {
+        return value === true ? true : 'You must accept the terms';
+      }
+    }
+  },
+  validateOnChange: true,
+  validateOnBlur: true,
+  onSubmit: async (values) => {
+    await registerUser(values);
+    console.log('User registered successfully');
+  },
+  onError: (errors) => {
+    console.error('Form validation errors:', errors);
+  }
+});
+
+// Use with vanilla HTML
+const usernameInput = document.getElementById('username') as HTMLInputElement;
+usernameInput.addEventListener('input', (e) => {
+  form.setValue('username', (e.target as HTMLInputElement).value);
+});
+usernameInput.addEventListener('blur', () => {
+  form.touchField('username');
+});
+
+const submitBtn = document.getElementById('submit');
+submitBtn?.addEventListener('click', async () => {
+  await form.submit();
+});
+```
+
+### React Integration
+
+```typescript
+import { createForm } from '@bytekit/utils';
+import { useState, useEffect } from 'react';
+
+interface ContactForm {
+  name: string;
+  email: string;
+  message: string;
+}
+
+function ContactFormComponent() {
+  const [formState, setFormState] = useState<FormState<ContactForm>>();
+  
+  const form = createForm<ContactForm>({
+    initialValues: {
+      name: '',
+      email: '',
+      message: ''
+    },
+    rules: {
+      name: { required: true, minLength: 2 },
+      email: { required: true, email: true },
+      message: { required: true, minLength: 10 }
+    },
+    validateOnChange: true,
+    onSubmit: async (values) => {
+      await sendContactForm(values);
+      alert('Message sent!');
+      form.reset();
+      setFormState(form.getState());
+    }
+  });
+  
+  // Update state when form changes
+  useEffect(() => {
+    const updateState = () => setFormState(form.getState());
+    updateState();
+  }, []);
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await form.submit();
+    setFormState(form.getState());
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      <div>
+        <label>Name:</label>
+        <input
+          type="text"
+          value={form.getValue('name')}
+          onChange={(e) => {
+            form.setValue('name', e.target.value);
+            setFormState(form.getState());
+          }}
+          onBlur={() => {
+            form.touchField('name');
+            setFormState(form.getState());
+          }}
+        />
+        {form.hasError('name') && form.isTouched('name') && (
+          <span className="error">{form.getFieldError('name')}</span>
+        )}
+      </div>
+      
+      <div>
+        <label>Email:</label>
+        <input
+          type="email"
+          value={form.getValue('email')}
+          onChange={(e) => {
+            form.setValue('email', e.target.value);
+            setFormState(form.getState());
+          }}
+          onBlur={() => {
+            form.touchField('email');
+            setFormState(form.getState());
+          }}
+        />
+        {form.hasError('email') && form.isTouched('email') && (
+          <span className="error">{form.getFieldError('email')}</span>
+        )}
+      </div>
+      
+      <div>
+        <label>Message:</label>
+        <textarea
+          value={form.getValue('message')}
+          onChange={(e) => {
+            form.setValue('message', e.target.value);
+            setFormState(form.getState());
+          }}
+          onBlur={() => {
+            form.touchField('message');
+            setFormState(form.getState());
+          }}
+        />
+        {form.hasError('message') && form.isTouched('message') && (
+          <span className="error">{form.getFieldError('message')}</span>
+        )}
+      </div>
+      
+      <button type="submit" disabled={formState?.isValidating}>
+        {formState?.isValidating ? 'Sending...' : 'Send Message'}
+      </button>
+    </form>
+  );
+}
+```
+
+### Vue Integration
+
+```typescript
+import { createForm } from '@bytekit/utils';
+import { reactive } from 'vue';
+
+interface ProfileForm {
+  displayName: string;
+  bio: string;
+  website: string;
+}
+
+export default {
+  setup() {
+    const form = createForm<ProfileForm>({
+      initialValues: {
+        displayName: '',
+        bio: '',
+        website: ''
+      },
+      rules: {
+        displayName: { required: true, maxLength: 50 },
+        bio: { maxLength: 500 },
+        website: { url: true }
+      },
+      validateOnChange: true,
+      onSubmit: async (values) => {
+        await updateProfile(values);
+        alert('Profile updated!');
+      }
+    });
+    
+    const state = reactive(form.getState());
+    
+    const updateState = () => {
+      Object.assign(state, form.getState());
+    };
+    
+    const handleChange = (field: keyof ProfileForm, value: any) => {
+      form.setValue(field, value);
+      updateState();
+    };
+    
+    const handleBlur = (field: keyof ProfileForm) => {
+      form.touchField(field);
+      updateState();
+    };
+    
+    const handleSubmit = async () => {
+      await form.submit();
+      updateState();
+    };
+    
+    return {
+      state,
+      form,
+      handleChange,
+      handleBlur,
+      handleSubmit
+    };
+  }
+};
+```
+
+## Best Practices
+
+1. Use typed interfaces for form values
+2. Define validation rules upfront
+3. Provide clear, user-friendly error messages
+4. Validate on blur for better UX
+5. Use async validators for server-side checks
+6. Reset form after successful submission
+7. Disable submit button during validation
+8. Show errors only for touched fields

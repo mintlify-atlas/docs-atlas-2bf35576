@@ -1,0 +1,524 @@
+---
+title: 'DateUtils'
+description: 'Date manipulation and comparison utilities for parsing, formatting, and calculations'
+---
+
+## Overview
+
+DateUtils provides comprehensive date manipulation utilities including parsing, formatting, date arithmetic, comparisons, and duration calculations. All methods safely handle various input formats.
+
+## Import
+
+```typescript
+import { DateUtils } from '@bytekit/utils/helpers';
+```
+
+## Methods
+
+### parse
+
+Parses various date formats into a Date object.
+
+<ParamField path="value" type="Date | string | number | null | undefined">
+  The date input to parse
+</ParamField>
+
+**Returns:** `Date | null` - Parsed Date object or null if invalid
+
+```typescript
+DateUtils.parse('2024-03-15');
+// Returns: Date object for March 15, 2024
+
+DateUtils.parse(1710460800000);
+// Returns: Date object from timestamp
+
+DateUtils.parse(new Date());
+// Returns: New Date object with same time
+
+DateUtils.parse('invalid');
+// Returns: null
+
+DateUtils.parse(null);
+// Returns: null
+```
+
+**Input Formats:**
+- Date objects
+- ISO date strings
+- Unix timestamps (milliseconds)
+- Any valid date string
+
+---
+
+### isValid
+
+Checks if a date input is valid.
+
+<ParamField path="value" type="Date | string | number | null | undefined">
+  The date input to validate
+</ParamField>
+
+**Returns:** `boolean` - True if valid date
+
+```typescript
+DateUtils.isValid('2024-03-15');
+// Returns: true
+
+DateUtils.isValid('invalid-date');
+// Returns: false
+
+DateUtils.isValid(null);
+// Returns: false
+
+DateUtils.isValid(new Date());
+// Returns: true
+```
+
+---
+
+### toISODate
+
+Formats a date as YYYY-MM-DD.
+
+<ParamField path="value" type="Date | string | number | null | undefined">
+  The date input to format
+</ParamField>
+
+**Returns:** `string` - ISO date string (YYYY-MM-DD)
+
+**Throws:** `TypeError` if date is invalid
+
+```typescript
+DateUtils.toISODate('2024-03-15T10:30:00Z');
+// Returns: '2024-03-15'
+
+DateUtils.toISODate(new Date(2024, 2, 15));
+// Returns: '2024-03-15'
+
+DateUtils.toISODate(1710460800000);
+// Returns: '2024-03-15'
+```
+
+---
+
+### startOfDay
+
+Returns a date set to the start of the day (00:00:00.000).
+
+<ParamField path="value" type="Date | string | number | null | undefined">
+  The date input
+</ParamField>
+
+**Returns:** `Date` - Date at midnight
+
+**Throws:** `TypeError` if date is invalid
+
+```typescript
+const date = DateUtils.startOfDay('2024-03-15T14:30:00');
+// Returns: Date for 2024-03-15 00:00:00.000
+
+date.getHours(); // 0
+date.getMinutes(); // 0
+date.getSeconds(); // 0
+date.getMilliseconds(); // 0
+```
+
+---
+
+### endOfDay
+
+Returns a date set to the end of the day (23:59:59.999).
+
+<ParamField path="value" type="Date | string | number | null | undefined">
+  The date input
+</ParamField>
+
+**Returns:** `Date` - Date at last millisecond of day
+
+**Throws:** `TypeError` if date is invalid
+
+```typescript
+const date = DateUtils.endOfDay('2024-03-15T10:00:00');
+// Returns: Date for 2024-03-15 23:59:59.999
+
+date.getHours(); // 23
+date.getMinutes(); // 59
+date.getSeconds(); // 59
+date.getMilliseconds(); // 999
+```
+
+---
+
+### add
+
+Adds a duration to a date.
+
+<ParamField path="value" type="Date | string | number | null | undefined">
+  The base date
+</ParamField>
+
+<ParamField path="duration" type="AddDurationOptions">
+  Duration to add
+  
+  <ParamField path="days" type="number">
+    Number of days to add
+  </ParamField>
+  
+  <ParamField path="hours" type="number">
+    Number of hours to add
+  </ParamField>
+  
+  <ParamField path="minutes" type="number">
+    Number of minutes to add
+  </ParamField>
+  
+  <ParamField path="seconds" type="number">
+    Number of seconds to add
+  </ParamField>
+  
+  <ParamField path="milliseconds" type="number">
+    Number of milliseconds to add
+  </ParamField>
+</ParamField>
+
+**Returns:** `Date` - New date with duration added
+
+**Throws:** `TypeError` if date is invalid
+
+```typescript
+DateUtils.add('2024-03-15', { days: 5 });
+// Returns: Date for 2024-03-20
+
+DateUtils.add('2024-03-15T10:00:00', { hours: 2, minutes: 30 });
+// Returns: Date for 2024-03-15 12:30:00
+
+DateUtils.add('2024-03-15', { 
+  days: 1, 
+  hours: 12, 
+  minutes: 30 
+});
+// Returns: Date for 2024-03-16 12:30:00
+
+// Negative values for subtraction
+DateUtils.add('2024-03-15', { days: -7 });
+// Returns: Date for 2024-03-08
+```
+
+---
+
+### diff
+
+Calculates the difference between two dates.
+
+<ParamField path="a" type="Date | string | number | null | undefined">
+  The first date (start)
+</ParamField>
+
+<ParamField path="b" type="Date | string | number | null | undefined">
+  The second date (end)
+</ParamField>
+
+<ParamField path="options" type="DiffOptions">
+  Optional configuration
+  
+  <ParamField path="unit" type="'milliseconds' | 'seconds' | 'minutes' | 'hours' | 'days'" default="milliseconds">
+    Unit for the difference
+  </ParamField>
+  
+  <ParamField path="absolute" type="boolean" default="false">
+    Return absolute value
+  </ParamField>
+  
+  <ParamField path="rounding" type="'floor' | 'ceil' | 'round' | 'trunc'" default="floor">
+    Rounding method
+  </ParamField>
+</ParamField>
+
+**Returns:** `number` - Difference in specified unit
+
+**Throws:** `TypeError` if either date is invalid
+
+```typescript
+DateUtils.diff('2024-03-15', '2024-03-20', { unit: 'days' });
+// Returns: 5
+
+DateUtils.diff('2024-03-20', '2024-03-15', { unit: 'days' });
+// Returns: -5
+
+DateUtils.diff('2024-03-20', '2024-03-15', { 
+  unit: 'days', 
+  absolute: true 
+});
+// Returns: 5
+
+DateUtils.diff('2024-03-15T10:00:00', '2024-03-15T12:30:00', { 
+  unit: 'hours' 
+});
+// Returns: 2
+
+DateUtils.diff('2024-03-15', '2024-03-15T12:30:00', { 
+  unit: 'hours',
+  rounding: 'ceil'
+});
+// Returns: 13
+```
+
+---
+
+### diffInDays
+
+Calculates the difference between two dates in days.
+
+<ParamField path="a" type="Date | string | number | null | undefined">
+  The first date (start)
+</ParamField>
+
+<ParamField path="b" type="Date | string | number | null | undefined">
+  The second date (end)
+</ParamField>
+
+<ParamField path="options" type="Omit<DiffOptions, 'unit'>">
+  Optional configuration (absolute, rounding)
+</ParamField>
+
+**Returns:** `number` - Difference in days (rounded up by default)
+
+**Throws:** `TypeError` if either date is invalid
+
+```typescript
+DateUtils.diffInDays('2024-03-15', '2024-03-20');
+// Returns: 5
+
+DateUtils.diffInDays('2024-03-15T00:00:00', '2024-03-15T12:00:00');
+// Returns: 1 (rounded up by default)
+
+DateUtils.diffInDays('2024-03-15', '2024-03-15T12:00:00', { 
+  rounding: 'floor' 
+});
+// Returns: 0
+```
+
+**Note:** Defaults to 'ceil' rounding for day calculations
+
+---
+
+### isSameDay
+
+Checks if two dates are on the same calendar day.
+
+<ParamField path="a" type="Date | string | number | null | undefined">
+  The first date
+</ParamField>
+
+<ParamField path="b" type="Date | string | number | null | undefined">
+  The second date
+</ParamField>
+
+**Returns:** `boolean` - True if same day
+
+**Throws:** `TypeError` if either date is invalid
+
+```typescript
+DateUtils.isSameDay('2024-03-15T10:00:00', '2024-03-15T18:00:00');
+// Returns: true
+
+DateUtils.isSameDay('2024-03-15', '2024-03-16');
+// Returns: false
+
+DateUtils.isSameDay(
+  new Date(2024, 2, 15, 0, 0),
+  new Date(2024, 2, 15, 23, 59)
+);
+// Returns: true
+```
+
+---
+
+### isBefore
+
+Checks if the first date is before the second date.
+
+<ParamField path="a" type="Date | string | number | null | undefined">
+  The first date
+</ParamField>
+
+<ParamField path="b" type="Date | string | number | null | undefined">
+  The second date
+</ParamField>
+
+**Returns:** `boolean` - True if a is before b
+
+**Throws:** `TypeError` if either date is invalid
+
+```typescript
+DateUtils.isBefore('2024-03-15', '2024-03-20');
+// Returns: true
+
+DateUtils.isBefore('2024-03-20', '2024-03-15');
+// Returns: false
+
+DateUtils.isBefore('2024-03-15T10:00:00', '2024-03-15T10:00:00');
+// Returns: false (equal times)
+```
+
+---
+
+### isAfter
+
+Checks if the first date is after the second date.
+
+<ParamField path="a" type="Date | string | number | null | undefined">
+  The first date
+</ParamField>
+
+<ParamField path="b" type="Date | string | number | null | undefined">
+  The second date
+</ParamField>
+
+**Returns:** `boolean` - True if a is after b
+
+**Throws:** `TypeError` if either date is invalid
+
+```typescript
+DateUtils.isAfter('2024-03-20', '2024-03-15');
+// Returns: true
+
+DateUtils.isAfter('2024-03-15', '2024-03-20');
+// Returns: false
+
+DateUtils.isAfter('2024-03-15T10:00:00', '2024-03-15T10:00:00');
+// Returns: false (equal times)
+```
+
+---
+
+### format
+
+Formats a date using custom format string or locale.
+
+<ParamField path="dateInput" type="Date | string | number | null | undefined">
+  The date to format
+</ParamField>
+
+<ParamField path="formatOrLocale" type="string" default="es-AR">
+  Custom format string (e.g., 'YYYY-MM-DD') or locale (e.g., 'en-US')
+</ParamField>
+
+**Returns:** `string` - Formatted date string
+
+**Throws:** `TypeError` if date is invalid
+
+```typescript
+// Custom format strings
+DateUtils.format('2024-03-15T14:30:45', 'YYYY-MM-DD');
+// Returns: '2024-03-15'
+
+DateUtils.format('2024-03-15T14:30:45', 'DD/MM/YYYY HH:mm');
+// Returns: '15/03/2024 14:30'
+
+DateUtils.format('2024-03-15', 'YYYY-MM-DD HH:mm:ss');
+// Returns: '2024-03-15 00:00:00'
+
+// Locale-based formatting
+DateUtils.format('2024-03-15', 'en-US');
+// Returns: 'Mar 15, 2024'
+
+DateUtils.format('2024-03-15', 'es-AR');
+// Returns: '15 mar 2024'
+
+DateUtils.format('2024-03-15', 'de-DE');
+// Returns: '15. März 2024'
+```
+
+**Format Tokens:**
+- `YYYY` - Full year (e.g., 2024)
+- `MM` - Month (01-12)
+- `DD` - Day of month (01-31)
+- `HH` - Hour (00-23)
+- `mm` - Minute (00-59)
+- `ss` - Second (00-59)
+
+**Edge Cases:**
+- Invalid locales fallback to ISO string
+- Custom formats require exact token matches
+
+## Type Definitions
+
+```typescript
+type DateInput = Date | string | number | null | undefined;
+
+type DiffUnit = 'milliseconds' | 'seconds' | 'minutes' | 'hours' | 'days';
+
+type RoundingMode = 'floor' | 'ceil' | 'round' | 'trunc';
+
+interface DiffOptions {
+  unit?: DiffUnit;
+  absolute?: boolean;
+  rounding?: RoundingMode;
+}
+
+interface AddDurationOptions {
+  days?: number;
+  hours?: number;
+  minutes?: number;
+  seconds?: number;
+  milliseconds?: number;
+}
+```
+
+## Best Practices
+
+### Error Handling
+
+Most methods throw `TypeError` for invalid dates. Use `parse` or `isValid` first:
+
+```typescript
+const input = userInput;
+if (DateUtils.isValid(input)) {
+  const formatted = DateUtils.format(input, 'YYYY-MM-DD');
+} else {
+  console.error('Invalid date');
+}
+```
+
+### Date Comparisons
+
+```typescript
+const start = '2024-03-15';
+const end = '2024-03-20';
+
+if (DateUtils.isAfter(end, start)) {
+  const days = DateUtils.diffInDays(start, end);
+  console.log(`${days} days between dates`);
+}
+```
+
+### Date Range Queries
+
+```typescript
+const startOfToday = DateUtils.startOfDay(new Date());
+const endOfToday = DateUtils.endOfDay(new Date());
+
+// Use for filtering records
+const todayRecords = records.filter(r => {
+  const date = DateUtils.parse(r.createdAt);
+  return date && 
+    !DateUtils.isBefore(date, startOfToday) &&
+    !DateUtils.isAfter(date, endOfToday);
+});
+```
+
+### Duration Calculations
+
+```typescript
+const deadline = DateUtils.add(new Date(), { 
+  days: 7, 
+  hours: 12 
+});
+
+const timeLeft = DateUtils.diff(
+  new Date(), 
+  deadline, 
+  { unit: 'hours' }
+);
+```

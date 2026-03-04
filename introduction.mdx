@@ -1,0 +1,124 @@
+---
+title: Introduction
+description: Welcome to ByteKit - a modern TypeScript utilities library with zero dependencies
+---
+
+# Introduction
+
+Welcome to ByteKit, a modern TypeScript utilities library designed to streamline your development workflow. ByteKit provides a comprehensive set of tools including an isomorphic API client, structured logging, profiling utilities, and 28+ ready-to-use helper modules.
+
+<Note>
+ByteKit was previously known as `@sebamar88/utils` (v0.1.9 and earlier). If you're migrating from the old package, check our migration guide.
+</Note>
+
+## What is ByteKit?
+
+ByteKit is a collection of modern TypeScript utilities that work seamlessly across Node.js and browser environments. Whether you're building a REST API client, processing strings and dates, or managing application state, ByteKit provides the tools you need with a clean, type-safe API.
+
+## Key features
+
+ByteKit offers a comprehensive set of features organized into three main categories:
+
+<CardGroup cols={3}>
+  <Card title="Core modules" icon="gear">
+    - **ApiClient**: HTTP client with retries, circuit breaker, and localized errors
+    - **Logger**: Structured logging with levels and namespaces
+    - **Profiler**: Performance monitoring utilities
+    - **RetryPolicy**: Configurable retry strategies
+    - **RequestCache**: Intelligent request caching
+  </Card>
+  
+  <Card title="Helper utilities" icon="wrench">
+    - **DateUtils**: Safe date parsing and formatting
+    - **StringUtils**: Text processing (slugify, case conversions)
+    - **ArrayUtils**: Array manipulation (chunk, flatten, unique)
+    - **ObjectUtils**: Object operations (merge, pick, omit)
+    - **Validator**: Email, phone, and custom validation
+  </Card>
+  
+  <Card title="Advanced tools" icon="rocket">
+    - **CacheManager**: Multi-tier cache with TTL and LRU
+    - **CryptoUtils**: Token generation and hashing
+    - **EventEmitter**: Type-safe event handling
+    - **WebSocketHelper**: WebSocket connection management
+    - **PollingHelper**: Configurable polling strategies
+  </Card>
+</CardGroup>
+
+## Why choose ByteKit?
+
+ByteKit stands out for several key reasons:
+
+### Zero dependencies
+
+ByteKit has **true zero dependencies** and uses native `fetch` for HTTP operations. This means:
+- Smaller bundle sizes for your applications
+- Fewer security vulnerabilities
+- Faster installation times
+- No dependency conflicts
+
+### Isomorphic design
+
+All modules work seamlessly in both Node.js 18+ and modern browsers. Write once, run anywhere:
+
+```typescript
+import { ApiClient, DateUtils } from "bytekit";
+
+// Works in Node.js, React, Vue, Svelte, Angular, and more
+const api = new ApiClient({ baseUrl: "https://api.example.com" });
+const formatted = DateUtils.format(new Date());
+```
+
+### Tree-shakeable exports
+
+Import only what you need to keep your bundle size minimal:
+
+```typescript
+// Import specific modules
+import { ApiClient } from "bytekit/api-client";
+import { StringUtils } from "bytekit/string-utils";
+import { DateUtils } from "bytekit/date-utils";
+```
+
+### Type-safe and modern
+
+Built with TypeScript 5.0+, ByteKit provides:
+- Full TypeScript definitions
+- 100% ESM modules
+- Comprehensive type inference
+- IntelliSense support
+
+### Production-ready
+
+- **95%+ test coverage** with comprehensive test suites
+- **Battle-tested** in production environments
+- **Active maintenance** with regular updates
+- **Extensive documentation** with real-world examples
+
+<Tip>
+ByteKit is perfect for projects that need reliable, well-tested utilities without the overhead of large dependencies.
+</Tip>
+
+## Framework support
+
+ByteKit works seamlessly with all modern frameworks:
+
+- **React** - Use with hooks and components
+- **Vue** - Compatible with Composition API
+- **Svelte** - Works with stores and components
+- **Angular** - Injectable services support
+- **Next.js** - Server and client components
+- **Nuxt** - SSR and client-side
+- **SvelteKit** - Universal modules
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Get started by installing ByteKit in your project
+  </Card>
+  
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Learn the basics with a quick tutorial
+  </Card>
+</CardGroup>

@@ -1,0 +1,391 @@
+---
+title: DiffUtils
+description: Compare objects, track changes, and generate patches for data synchronization
+---
+
+## Overview
+
+The `DiffUtils` class provides utilities for deep comparison, change detection, and patch generation. Perfect for tracking object changes, implementing undo/redo, synchronizing data, and detecting differences in complex data structures.
+
+## Import
+
+```typescript
+import { DiffUtils } from 'bytekit';
+```
+
+## Usage
+
+### Deep Comparison
+
+```typescript
+const obj1 = { name: 'John', age: 30, meta: { role: 'admin' } };
+const obj2 = { name: 'John', age: 30, meta: { role: 'admin' } };
+const obj3 = { name: 'John', age: 31, meta: { role: 'admin' } };
+
+DiffUtils.deepEqual(obj1, obj2); // true
+DiffUtils.deepEqual(obj1, obj3); // false
+```
+
+### Detect Changes
+
+```typescript
+const oldState = {
+  name: 'John',
+  age: 30,
+  role: 'user'
+};
+
+const newState = {
+  name: 'John',
+  age: 31,
+  role: 'admin',
+  verified: true
+};
+
+const diff = DiffUtils.diff(oldState, newState);
+console.log(diff);
+// {
+//   changed: ['age', 'role'],
+//   added: ['verified'],
+//   removed: []
+// }
+```
+
+### Generate and Apply Patches
+
+```typescript
+const original = { count: 0, status: 'idle' };
+const updated = { count: 5, status: 'active', timestamp: 1234567890 };
+
+// Generate patches
+const patches = DiffUtils.createPatch(original, updated);
+console.log(patches);
+// [
+//   { op: 'replace', path: 'count', value: 5, oldValue: 0 },
+//   { op: 'replace', path: 'status', value: 'active', oldValue: 'idle' },
+//   { op: 'add', path: 'timestamp', value: 1234567890 }
+// ]
+
+// Apply patches
+const result = DiffUtils.applyPatch(original, patches);
+console.log(result);
+// { count: 5, status: 'active', timestamp: 1234567890 }
+```
+
+### Undo/Redo Implementation
+
+```typescript
+const original = { count: 0 };
+const updated = { count: 5 };
+
+// Create forward patches
+const patches = DiffUtils.createPatch(original, updated);
+
+// Apply changes
+let state = DiffUtils.applyPatch(original, patches);
+
+// Undo - reverse patches
+const undoPatches = DiffUtils.reversePatch(patches);
+state = DiffUtils.applyPatch(state, undoPatches);
+console.log(state); // { count: 0 }
+```
+
+### Deep Diff with Nested Paths
+
+```typescript
+const oldObj = {
+  user: {
+    profile: { name: 'John', age: 30 },
+    settings: { theme: 'dark' }
+  }
+};
+
+const newObj = {
+  user: {
+    profile: { name: 'John', age: 31 },
+    settings: { theme: 'light', notifications: true }
+  }
+};
+
+const deepDiff = DiffUtils.deepDiff(oldObj, newObj);
+console.log(deepDiff);
+// {
+//   changed: ['user.profile.age', 'user.settings.theme'],
+//   added: ['user.settings.notifications'],
+//   removed: []
+// }
+```
+
+### Merge Objects
+
+```typescript
+const obj1 = { name: 'John', age: 30, meta: { role: 'user' } };
+const obj2 = { age: 31, meta: { verified: true }, email: 'john@example.com' };
+
+// Deep merge
+const merged = DiffUtils.merge(obj1, obj2);
+console.log(merged);
+// {
+//   name: 'John',
+//   age: 31,
+//   meta: { role: 'user', verified: true },
+//   email: 'john@example.com'
+// }
+
+// Use first object's values
+const first = DiffUtils.merge(obj1, obj2, 'first');
+
+// Use second object's values
+const second = DiffUtils.merge(obj1, obj2, 'second');
+```
+
+## API Reference
+
+### deepEqual
+
+Deep compare two values for equality.
+
+<ParamField path="a" type="unknown" required>
+  First value to compare
+</ParamField>
+
+<ParamField path="b" type="unknown" required>
+  Second value to compare
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  Returns true if values are deeply equal
+</ResponseField>
+
+```typescript
+DiffUtils.deepEqual({ a: 1 }, { a: 1 }); // true
+DiffUtils.deepEqual({ a: 1 }, { a: 2 }); // false
+```
+
+### diff
+
+Compare two objects and return changed, added, and removed keys.
+
+<ParamField path="oldObj" type="Record<string, unknown>" required>
+  Original object
+</ParamField>
+
+<ParamField path="newObj" type="Record<string, unknown>" required>
+  New object to compare
+</ParamField>
+
+<ResponseField name="return" type="DiffResult">
+  Object containing arrays of changed, added, and removed keys
+  
+  ```typescript
+  interface DiffResult {
+    changed: string[];
+    added: string[];
+    removed: string[];
+  }
+  ```
+</ResponseField>
+
+### deepDiff
+
+Perform deep diff with nested paths using dot notation.
+
+<ParamField path="oldObj" type="unknown" required>
+  Original object
+</ParamField>
+
+<ParamField path="newObj" type="unknown" required>
+  New object to compare
+</ParamField>
+
+<ParamField path="prefix" type="string" default="''">
+  Path prefix for nested keys
+</ParamField>
+
+<ResponseField name="return" type="DiffResult">
+  Object with nested paths (e.g., 'user.profile.age')
+</ResponseField>
+
+### createPatch
+
+Generate patches to transform one object into another.
+
+<ParamField path="oldObj" type="Record<string, unknown>" required>
+  Original object
+</ParamField>
+
+<ParamField path="newObj" type="Record<string, unknown>" required>
+  Target object
+</ParamField>
+
+<ResponseField name="return" type="Patch[]">
+  Array of patch operations
+  
+  ```typescript
+  interface Patch {
+    op: 'add' | 'remove' | 'replace';
+    path: string;
+    value?: unknown;
+    oldValue?: unknown;
+  }
+  ```
+</ResponseField>
+
+### applyPatch
+
+Apply patches to an object.
+
+<ParamField path="obj" type="Record<string, unknown>" required>
+  Object to patch
+</ParamField>
+
+<ParamField path="patches" type="Patch[]" required>
+  Array of patches to apply
+</ParamField>
+
+<ResponseField name="return" type="Record<string, unknown>">
+  New object with patches applied (does not mutate original)
+</ResponseField>
+
+### reversePatch
+
+Reverse patches to create undo operations.
+
+<ParamField path="patches" type="Patch[]" required>
+  Patches to reverse
+</ParamField>
+
+<ResponseField name="return" type="Patch[]">
+  Reversed patches for undo
+</ResponseField>
+
+```typescript
+const patches = DiffUtils.createPatch(oldObj, newObj);
+const undoPatches = DiffUtils.reversePatch(patches);
+```
+
+### merge
+
+Merge two objects with conflict resolution strategy.
+
+<ParamField path="obj1" type="Record<string, unknown>" required>
+  First object
+</ParamField>
+
+<ParamField path="obj2" type="Record<string, unknown>" required>
+  Second object
+</ParamField>
+
+<ParamField path="strategy" type="'first' | 'second' | 'merge'" default="'merge'">
+  Conflict resolution strategy:
+  - `'first'`: Use values from obj1
+  - `'second'`: Use values from obj2
+  - `'merge'`: Deep merge (default)
+</ParamField>
+
+<ResponseField name="return" type="Record<string, unknown>">
+  Merged object
+</ResponseField>
+
+### getSummary
+
+Get a human-readable summary of changes.
+
+<ParamField path="diff" type="DiffResult" required>
+  Diff result from diff() or deepDiff()
+</ParamField>
+
+<ResponseField name="return" type="string">
+  Summary string (e.g., "2 changed, 1 added, 0 removed")
+</ResponseField>
+
+```typescript
+const diff = DiffUtils.diff(oldObj, newObj);
+const summary = DiffUtils.getSummary(diff);
+console.log(summary); // "2 changed, 1 added"
+```
+
+## Types
+
+### DiffResult
+
+```typescript
+interface DiffResult {
+  changed: string[];
+  added: string[];
+  removed: string[];
+}
+```
+
+### Patch
+
+```typescript
+interface Patch {
+  op: 'add' | 'remove' | 'replace';
+  path: string;
+  value?: unknown;
+  oldValue?: unknown;
+}
+```
+
+## Use Cases
+
+### State Management
+
+```typescript
+class StateManager {
+  private history: Patch[][] = [];
+  private state: any;
+  
+  update(newState: any) {
+    const patches = DiffUtils.createPatch(this.state, newState);
+    this.history.push(patches);
+    this.state = newState;
+  }
+  
+  undo() {
+    const patches = this.history.pop();
+    if (patches) {
+      const undoPatches = DiffUtils.reversePatch(patches);
+      this.state = DiffUtils.applyPatch(this.state, undoPatches);
+    }
+  }
+}
+```
+
+### Data Sync
+
+```typescript
+const localData = await fetchLocal();
+const serverData = await fetchServer();
+
+const diff = DiffUtils.diff(localData, serverData);
+
+if (diff.changed.length > 0 || diff.added.length > 0) {
+  const patches = DiffUtils.createPatch(localData, serverData);
+  await syncToServer(patches);
+}
+```
+
+### Change Tracking
+
+```typescript
+const observer = {
+  original: data,
+  
+  check(current: any) {
+    const diff = DiffUtils.deepDiff(this.original, current);
+    const summary = DiffUtils.getSummary(diff);
+    
+    if (diff.changed.length > 0) {
+      console.log(`Changes detected: ${summary}`);
+      console.log('Modified fields:', diff.changed);
+    }
+  }
+};
+```
+
+## Related
+
+- [Signal](/api/helpers/signal) - For reactive state changes
+- [EventEmitter](/api/helpers/event-emitter) - For change notifications

@@ -1,0 +1,499 @@
+---
+title: Validator
+description: Comprehensive validation utilities for forms, authentication, and data integrity
+---
+
+## Overview
+
+The `Validator` object provides a comprehensive set of validation methods for common data types including emails, phones, passwords, URLs, and regional identifiers (DNI, CUIT, CBU).
+
+## Email Validation
+
+### isEmail
+
+Validate email addresses with ReDoS protection.
+
+```typescript
+Validator.isEmail(value: string | null | undefined): boolean
+```
+
+#### Example
+
+```typescript
+import { Validator } from 'bytekit/utils/helpers';
+
+Validator.isEmail('user@example.com');      // true
+Validator.isEmail('invalid.email');         // false
+Validator.isEmail('user@domain');           // false
+Validator.isEmail('  user@example.com  '); // false (no trimming)
+Validator.isEmail('');                      // false
+Validator.isEmail(null);                    // false
+```
+
+## Empty Checks
+
+### isEmpty
+
+Check if a value is empty (null, undefined, empty string/array/object).
+
+```typescript
+Validator.isEmpty(value: unknown): boolean
+```
+
+#### Example
+
+```typescript
+Validator.isEmpty(null);           // true
+Validator.isEmpty(undefined);      // true
+Validator.isEmpty('');             // true
+Validator.isEmpty('   ');          // true (whitespace only)
+Validator.isEmpty([]);             // true
+Validator.isEmpty({});             // true
+Validator.isEmpty('hello');        // false
+Validator.isEmpty([1, 2]);         // false
+Validator.isEmpty({ key: 'val' }); // false
+```
+
+## Length Validation
+
+### minLength
+
+Check if value meets minimum length requirement.
+
+```typescript
+Validator.minLength(
+  value: { length: number } | null | undefined,
+  min: number
+): boolean
+```
+
+#### Example
+
+```typescript
+Validator.minLength('password', 8);    // true
+Validator.minLength('pass', 8);        // false
+Validator.minLength([1, 2, 3], 2);     // true
+Validator.minLength(null, 5);          // false
+```
+
+### maxLength
+
+Check if value does not exceed maximum length.
+
+```typescript
+Validator.maxLength(
+  value: { length: number } | null | undefined,
+  max: number
+): boolean
+```
+
+#### Example
+
+```typescript
+Validator.maxLength('username', 20);   // true
+Validator.maxLength('verylongname', 5); // false
+Validator.maxLength([1, 2], 5);        // true
+```
+
+## Pattern Matching
+
+### matches
+
+Check if value matches a regex pattern.
+
+```typescript
+Validator.matches(
+  value: string | null | undefined,
+  pattern: RegExp
+): boolean
+```
+
+#### Example
+
+```typescript
+Validator.matches('abc123', /^[a-z0-9]+$/);     // true
+Validator.matches('ABC', /^[a-z]+$/);           // false
+Validator.matches('2024-01-15', /^\d{4}-\d{2}-\d{2}$/); // true
+```
+
+## URL Validation
+
+### isUrl
+
+Validate URLs using native URL constructor.
+
+```typescript
+Validator.isUrl(value: string | null | undefined): boolean
+```
+
+#### Example
+
+```typescript
+Validator.isUrl('https://example.com');       // true
+Validator.isUrl('http://localhost:3000');     // true
+Validator.isUrl('ftp://files.example.com');   // true
+Validator.isUrl('not-a-url');                 // false
+Validator.isUrl('example.com');               // false (no protocol)
+```
+
+## Phone Number Validation
+
+### isInternationalPhone
+
+Validate international phone numbers (E.164 format with + prefix).
+
+```typescript
+Validator.isInternationalPhone(value: string | null | undefined): boolean
+```
+
+#### Example
+
+```typescript
+Validator.isInternationalPhone('+14155552671');    // true
+Validator.isInternationalPhone('+541123456789');   // true
+Validator.isInternationalPhone('+34912345678');    // true
+Validator.isInternationalPhone('14155552671');     // false (no +)
+Validator.isInternationalPhone('+1234');           // false (too short)
+```
+
+### isPhoneE164
+
+Validate phone numbers in E.164 format (optional + prefix).
+
+```typescript
+Validator.isPhoneE164(value: string | null | undefined): boolean
+```
+
+#### Example
+
+```typescript
+Validator.isPhoneE164('+14155552671');  // true
+Validator.isPhoneE164('14155552671');   // true
+Validator.isPhoneE164('4155552671');    // true
+```
+
+### isLocalPhone
+
+Validate local phone numbers with locale-specific rules.
+
+```typescript
+Validator.isLocalPhone(
+  value: string | null | undefined,
+  locale: string,
+  options?: { fallbackToGeneric?: boolean }
+): boolean
+```
+
+#### Supported Locales
+
+- `es-ar` / `es_ar`: Argentina
+- `es-es` / `es_es`: Spain
+- `es-mx` / `es_mx`: Mexico
+- `en-us` / `en_us`: United States
+- `pt-br` / `pt_br`: Brazil
+
+#### Parameters
+
+<ParamField path="value" type="string" required>
+  Phone number to validate
+</ParamField>
+
+<ParamField path="locale" type="string" required>
+  Locale code (e.g., 'es-ar', 'en-us')
+</ParamField>
+
+<ParamField path="options.fallbackToGeneric" type="boolean" default="true">
+  Use generic validation (6-12 digits) if locale pattern not found
+</ParamField>
+
+#### Example
+
+```typescript
+// Argentina
+Validator.isLocalPhone('1123456789', 'es-ar');     // true
+Validator.isLocalPhone('011-2345-6789', 'es-ar');  // true
+
+// United States
+Validator.isLocalPhone('4155552671', 'en-us');     // true
+Validator.isLocalPhone('(415) 555-2671', 'en-us'); // true
+
+// Spain
+Validator.isLocalPhone('612345678', 'es-es');      // true
+
+// No fallback
+Validator.isLocalPhone('123456', 'unknown', { fallbackToGeneric: false }); // false
+```
+
+## UUID Validation
+
+### isUUIDv4
+
+Validate UUID version 4 format.
+
+```typescript
+Validator.isUUIDv4(value: string | null | undefined): boolean
+```
+
+#### Example
+
+```typescript
+Validator.isUUIDv4('550e8400-e29b-41d4-a716-446655440000'); // true
+Validator.isUUIDv4('123e4567-e89b-12d3-a456-426614174000'); // false (not v4)
+Validator.isUUIDv4('invalid-uuid');                         // false
+```
+
+## Regional Identifiers (Argentina)
+
+### isDni
+
+Validate Argentine DNI (7-8 digits).
+
+```typescript
+Validator.isDni(value: string | number | null | undefined): boolean
+```
+
+#### Example
+
+```typescript
+Validator.isDni('12345678');     // true
+Validator.isDni(12345678);       // true
+Validator.isDni('1234567');      // true (7 digits)
+Validator.isDni('12.345.678');   // true (formatting ignored)
+Validator.isDni('123456');       // false (too short)
+```
+
+### isCuit
+
+Validate Argentine CUIT with checksum verification.
+
+```typescript
+Validator.isCuit(value: string | null | undefined): boolean
+```
+
+#### Example
+
+```typescript
+Validator.isCuit('20123456789');      // Validates with checksum
+Validator.isCuit('20-12345678-9');    // true (formatting ignored)
+Validator.isCuit('12345678901');      // false (invalid checksum)
+```
+
+### isCbu
+
+Validate Argentine CBU (22 digits with block checksums).
+
+```typescript
+Validator.isCbu(value: string | null | undefined): boolean
+```
+
+#### Example
+
+```typescript
+Validator.isCbu('0170076540000001912345'); // Validates both blocks
+Validator.isCbu('01700765-40000001912345'); // true (formatting ignored)
+Validator.isCbu('12345678901234567890');   // false (invalid checksums)
+```
+
+## Password Validation
+
+### isStrongPassword
+
+Validate password strength with customizable requirements.
+
+```typescript
+Validator.isStrongPassword(
+  value: string | null | undefined,
+  options?: StrongPasswordOptions
+): boolean
+```
+
+#### StrongPasswordOptions
+
+```typescript
+interface StrongPasswordOptions {
+  minLength?: number;         // Default: 8
+  requireUppercase?: boolean; // Default: true
+  requireNumber?: boolean;    // Default: true
+  requireSpecial?: boolean;   // Default: true
+}
+```
+
+#### Example
+
+```typescript
+// Default requirements
+Validator.isStrongPassword('Pass123!');     // true
+Validator.isStrongPassword('password');     // false (no uppercase, number, special)
+Validator.isStrongPassword('PASSWORD123');  // false (no special char)
+Validator.isStrongPassword('Pass!');        // false (too short)
+
+// Custom requirements
+Validator.isStrongPassword('simplepass', {
+  minLength: 6,
+  requireUppercase: false,
+  requireNumber: false,
+  requireSpecial: false
+}); // true
+
+// Strict requirements
+Validator.isStrongPassword('MyP@ssw0rd2024!', {
+  minLength: 12,
+  requireUppercase: true,
+  requireNumber: true,
+  requireSpecial: true
+}); // true
+```
+
+## Date Validation
+
+### isDateRange
+
+Validate that end date is after or equal to start date.
+
+```typescript
+Validator.isDateRange(
+  start: Date | string | null | undefined,
+  end: Date | string | null | undefined
+): boolean
+```
+
+#### Example
+
+```typescript
+Validator.isDateRange(
+  new Date('2024-01-01'),
+  new Date('2024-12-31')
+); // true
+
+Validator.isDateRange(
+  '2024-01-01',
+  '2024-12-31'
+); // true
+
+Validator.isDateRange(
+  new Date('2024-12-31'),
+  new Date('2024-01-01')
+); // false
+
+Validator.isDateRange(
+  '2024-01-01',
+  '2024-01-01'
+); // true (same date is valid)
+```
+
+## One-Time Code Validation
+
+### isOneTimeCode
+
+Validate numeric one-time codes (OTP, 2FA codes).
+
+```typescript
+Validator.isOneTimeCode(
+  value: string | null | undefined,
+  digits?: number
+): boolean
+```
+
+#### Parameters
+
+<ParamField path="value" type="string" required>
+  The code to validate
+</ParamField>
+
+<ParamField path="digits" type="number" default="6">
+  Expected number of digits
+</ParamField>
+
+#### Example
+
+```typescript
+Validator.isOneTimeCode('123456');      // true (6 digits)
+Validator.isOneTimeCode('1234');        // false
+Validator.isOneTimeCode('1234', 4);     // true (4 digits)
+Validator.isOneTimeCode('  123456  '); // true (whitespace trimmed)
+Validator.isOneTimeCode('12a456');      // false (not all digits)
+```
+
+## Complete Example: Form Validation
+
+```typescript
+import { Validator } from 'bytekit/utils/helpers';
+
+interface SignupForm {
+  email: string;
+  password: string;
+  phone: string;
+  dni: string;
+  code: string;
+}
+
+interface ValidationErrors {
+  email?: string;
+  password?: string;
+  phone?: string;
+  dni?: string;
+  code?: string;
+}
+
+function validateSignupForm(form: SignupForm, locale: string): ValidationErrors {
+  const errors: ValidationErrors = {};
+
+  // Email validation
+  if (!Validator.isEmail(form.email)) {
+    errors.email = 'Invalid email address';
+  }
+
+  // Password validation
+  if (!Validator.isStrongPassword(form.password)) {
+    errors.password = 'Password must be at least 8 characters with uppercase, number, and special character';
+  }
+
+  // Phone validation
+  if (!Validator.isLocalPhone(form.phone, locale)) {
+    errors.phone = 'Invalid phone number for your region';
+  }
+
+  // DNI validation (Argentina)
+  if (locale === 'es-ar' && !Validator.isDni(form.dni)) {
+    errors.dni = 'Invalid DNI number';
+  }
+
+  // OTP validation
+  if (!Validator.isOneTimeCode(form.code, 6)) {
+    errors.code = 'Verification code must be 6 digits';
+  }
+
+  return errors;
+}
+
+// Usage
+const form: SignupForm = {
+  email: 'user@example.com',
+  password: 'SecurePass123!',
+  phone: '1123456789',
+  dni: '12345678',
+  code: '123456'
+};
+
+const errors = validateSignupForm(form, 'es-ar');
+
+if (Object.keys(errors).length === 0) {
+  console.log('Form is valid!');
+} else {
+  console.log('Validation errors:', errors);
+}
+```
+
+## Best Practices
+
+<Tip>
+  **Client-Side Validation**: Always validate on both client and server. Client-side validation improves UX, but server-side validation is essential for security.
+</Tip>
+
+<Warning>
+  **ReDoS Protection**: The `isEmail` validator is designed to prevent ReDoS attacks. Avoid using complex regex patterns for email validation.
+</Warning>
+
+<Info>
+  **Locale Support**: When validating phone numbers, use `isLocalPhone` with the user's locale for the best validation accuracy.
+</Info>

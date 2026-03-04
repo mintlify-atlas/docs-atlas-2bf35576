@@ -1,80 +1,424 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick start
+description: Get up and running with ByteKit in minutes
 ---
 
-## Get started in three steps
+# Quick start
 
-Get your documentation site running locally and make your first customization.
+This guide will help you get started with ByteKit quickly. You'll learn how to use the core features including the API client, helper utilities, and logging.
 
-### Step 1: Set up your local environment
+<Note>
+Make sure you've [installed ByteKit](/installation) before following this guide.
+</Note>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+## Basic setup
+
+<Steps>
+  <Step title="Import ByteKit modules">
+    Start by importing the modules you need. You can import from the main package or use modular imports:
+
+    ```typescript
+    // Import from main package
+    import { ApiClient, createLogger, DateUtils, StringUtils } from "bytekit";
+
+    // Or use modular imports for better tree-shaking
+    import { ApiClient } from "bytekit/api-client";
+    import { createLogger } from "bytekit/logger";
+    import { DateUtils } from "bytekit/date-utils";
+    import { StringUtils } from "bytekit/string-utils";
+    ```
+  </Step>
+
+  <Step title="Create an API client">
+    Set up an API client with your base URL and configuration:
+
+    ```typescript
+    const api = new ApiClient({
+      baseUrl: "https://api.example.com",
+      defaultHeaders: {
+        "Content-Type": "application/json",
+        "X-API-Key": "your-api-key"
+      },
+      locale: "en", // or "es" for Spanish
+      timeoutMs: 30000, // 30 second timeout
+    });
+    ```
+
+    <Tip>
+    The API client automatically handles JSON serialization, retries, and error handling for you.
+    </Tip>
+  </Step>
+
+  <Step title="Make your first request">
+    Use the API client to fetch data:
+
+    ```typescript
+    // Define your response type
+    interface User {
+      id: number;
+      name: string;
+      email: string;
+    }
+
+    // GET request with type safety
+    const users = await api.get<User[]>("/users");
+    console.log("Users:", users);
+
+    // POST request with body
+    const newUser = await api.post<User>("/users", {
+      body: {
+        name: "John Doe",
+        email: "john@example.com"
+      }
+    });
+    console.log("Created user:", newUser);
+
+    // PUT request to update
+    const updated = await api.put<User>(`/users/${newUser.id}`, {
+      body: {
+        name: "Jane Doe",
+        email: "jane@example.com"
+      }
+    });
+
+    // DELETE request
+    await api.delete(`/users/${newUser.id}`);
+    ```
+  </Step>
+
+  <Step title="Use helper utilities">
+    ByteKit includes many helper utilities for common tasks:
+
+    ```typescript
+    // String utilities
+    const slug = StringUtils.slugify("Hello World! 🌍");
+    console.log(slug); // Output: hello-world
+
+    const camelCase = StringUtils.toCamelCase("hello_world_example");
+    console.log(camelCase); // Output: helloWorldExample
+
+    const masked = StringUtils.mask("1234567890", { start: 4, end: 2 });
+    console.log(masked); // Output: 1234****90
+
+    // Date utilities
+    const formatted = DateUtils.format(new Date(), "en-US");
+    console.log(formatted); // Output: 3/4/2026
+
+    const parsed = DateUtils.parse("2026-03-04");
+    console.log(parsed); // Output: Date object
+
+    const isValid = DateUtils.isValid("2026-03-04");
+    console.log(isValid); // Output: true
+    ```
+  </Step>
+</Steps>
+
+## Complete example
+
+Here's a complete example that ties everything together:
+
+```typescript
+import {
+  ApiClient,
+  createLogger,
+  StringUtils,
+  DateUtils,
+  ArrayUtils,
+  ObjectUtils
+} from "bytekit";
+
+// Create a logger
+const logger = createLogger({
+  namespace: "my-app",
+  level: "info"
+});
+
+// Create an API client
+const api = new ApiClient({
+  baseUrl: "https://jsonplaceholder.typicode.com",
+  defaultHeaders: {
+    "Content-Type": "application/json"
+  },
+  retryPolicy: {
+    maxAttempts: 3,
+    initialDelayMs: 1000
+  }
+});
+
+// Define types
+interface Post {
+  userId: number;
+  id: number;
+  title: string;
+  body: string;
+}
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+async function main() {
+  logger.info("Starting application");
+
+  try {
+    // Fetch posts
+    const posts = await api.get<Post[]>("/posts", {
+      searchParams: {
+        _limit: 10 // Limit to 10 posts
+      }
+    });
+
+    logger.info("Fetched posts", { count: posts.length });
+
+    // Process posts with helper utilities
+    const processedPosts = posts.map(post => ({
+      ...post,
+      slug: StringUtils.slugify(post.title),
+      preview: StringUtils.truncate(post.body, 50),
+      createdAt: DateUtils.format(new Date())
+    }));
+
+    // Group posts by user
+    const postsByUser = ObjectUtils.groupBy(processedPosts, "userId");
+
+    // Fetch users for unique user IDs
+    const userIds = ArrayUtils.unique(posts.map(p => p.userId));
+    const users = await Promise.all(
+      userIds.map(id => api.get<User>(`/users/${id}`))
+    );
+
+    logger.info("Fetched users", { count: users.length });
+
+    // Create a report
+    const report = users.map(user => ({
+      user: ObjectUtils.pick(user, ["id", "name", "email"]),
+      postCount: postsByUser[user.id]?.length || 0,
+      posts: postsByUser[user.id] || []
+    }));
+
+    logger.info("Generated report", { users: report.length });
+    console.log(JSON.stringify(report, null, 2));
+
+  } catch (error) {
+    logger.error("Application error", { error });
+    throw error;
+  }
+}
+
+// Run the application
+main().catch(console.error);
+```
+
+<Note>
+This example demonstrates:
+- Making HTTP requests with the API client
+- Using string utilities (slugify, truncate)
+- Using date formatting
+- Using array utilities (unique)
+- Using object utilities (groupBy, pick)
+- Structured logging
+</Note>
+
+## Advanced API client features
+
+The API client includes powerful features for production applications:
+
+### Retry policy and circuit breaker
+
+```typescript
+const api = new ApiClient({
+  baseUrl: "https://api.example.com",
+  
+  // Retry configuration
+  retryPolicy: {
+    maxAttempts: 3,           // Retry up to 3 times
+    initialDelayMs: 1000,     // Start with 1 second delay
+    maxDelayMs: 10000,        // Max 10 seconds between retries
+    factor: 2,                // Exponential backoff factor
+    retryableStatusCodes: [408, 429, 500, 502, 503, 504]
+  },
+
+  // Circuit breaker configuration
+  circuitBreaker: {
+    failureThreshold: 5,      // Open after 5 failures
+    resetTimeoutMs: 60000,    // Try again after 1 minute
+    halfOpenMaxAttempts: 2    // Allow 2 test requests
+  }
+});
+```
+
+### Localized error messages
+
+```typescript
+const api = new ApiClient({
+  baseUrl: "https://api.example.com",
+  locale: "es", // Use Spanish error messages
+  errorMessages: {
+    es: {
+      404: "Recurso no encontrado",
+      500: "Error interno del servidor",
+      418: "Soy una tetera ☕"
+    },
+    en: {
+      404: "Resource not found",
+      500: "Internal server error"
+    }
+  }
+});
+```
+
+### Request interceptors
+
+```typescript
+const api = new ApiClient({
+  baseUrl: "https://api.example.com",
+  interceptors: {
+    // Modify requests before they're sent
+    request: async (url, init) => {
+      // Add authentication token
+      const token = await getAuthToken();
+      init.headers = {
+        ...init.headers,
+        Authorization: `Bearer ${token}`
+      };
+      return [url, init];
+    },
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    // Modify responses before they're returned
+    response: async (response) => {
+      // Log response times
+      console.log(`Request to ${response.url} took ${Date.now()}ms`);
+      return response;
+    }
+  }
+});
+```
 
-### Step 2: Deploy your changes
+## Using array and object utilities
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+ByteKit provides powerful utilities for working with arrays and objects:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+```typescript
+import { ArrayUtils, ObjectUtils } from "bytekit";
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+// Array utilities
+const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const chunks = ArrayUtils.chunk(numbers, 3);
+// Output: [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
 
-### Step 3: Go live
+const duplicates = [1, 2, 2, 3, 3, 3, 4];
+const unique = ArrayUtils.unique(duplicates);
+// Output: [1, 2, 3, 4]
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+const shuffled = ArrayUtils.shuffle([1, 2, 3, 4, 5]);
+// Output: [3, 1, 5, 2, 4] (random order)
+
+// Object utilities
+const user = {
+  id: 1,
+  name: "John",
+  email: "john@example.com",
+  password: "secret",
+  role: "admin"
+};
+
+const safe = ObjectUtils.pick(user, ["id", "name", "email"]);
+// Output: { id: 1, name: "John", email: "john@example.com" }
+
+const public = ObjectUtils.omit(user, ["password"]);
+// Output: { id: 1, name: "John", email: "john@example.com", role: "admin" }
+
+const users = [
+  { id: 1, name: "John", department: "Engineering" },
+  { id: 2, name: "Jane", department: "Engineering" },
+  { id: 3, name: "Bob", department: "Sales" }
+];
+
+const grouped = ObjectUtils.groupBy(users, "department");
+// Output:
+// {
+//   Engineering: [{ id: 1, ... }, { id: 2, ... }],
+//   Sales: [{ id: 3, ... }]
+// }
+```
+
+## Framework integration examples
+
+### React example
+
+```tsx
+import { ApiClient } from "bytekit";
+import { useState, useEffect } from "react";
+
+const api = new ApiClient({ baseUrl: "https://api.example.com" });
+
+function UsersList() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get("/users")
+      .then(setUsers)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+
+  return (
+    <ul>
+      {users.map(user => (
+        <li key={user.id}>{user.name}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+### Vue example
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted } from "vue";
+import { ApiClient } from "bytekit";
+
+const api = new ApiClient({ baseUrl: "https://api.example.com" });
+const users = ref([]);
+const loading = ref(true);
+
+onMounted(async () => {
+  users.value = await api.get("/users");
+  loading.value = false;
+});
+</script>
+
+<template>
+  <div v-if="loading">Loading...</div>
+  <ul v-else>
+    <li v-for="user in users" :key="user.id">{{ user.name }}</li>
+  </ul>
+</template>
+```
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
+Now that you understand the basics, explore more advanced features:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="API client guide" icon="network-wired" href="/guides/api-client">
+    Learn advanced API client features like caching, rate limiting, and request deduplication
+  </Card>
+  
+  <Card title="Helper utilities" icon="toolbox" href="/guides/helpers">
+    Explore all 28+ helper modules including validators, crypto, and caching
+  </Card>
+  
+  <Card title="Logging & profiling" icon="chart-line" href="/guides/logging">
+    Set up structured logging and performance monitoring
+  </Card>
+  
+  <Card title="Best practices" icon="star" href="/guides/best-practices">
+    Production-ready patterns and optimization tips
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

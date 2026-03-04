@@ -1,0 +1,542 @@
+---
+title: 'State Management with QueryClient'
+description: 'Learn how to use QueryClient for React Query-like state management with caching, invalidation, and lifecycle callbacks'
+---
+
+# State Management with QueryClient
+
+The `QueryClient` class wraps `ApiClient` with React Query-like functionality, providing automatic caching, state tracking, request deduplication, and lifecycle callbacks.
+
+## Quick Start
+
+```typescript
+import { createApiClient, createQueryClient } from 'bytekit';
+
+const apiClient = createApiClient({
+  baseUrl: 'https://api.example.com'
+});
+
+const queryClient = createQueryClient(apiClient, {
+  defaultStaleTime: 5000,      // 5 seconds
+  defaultCacheTime: 300000,    // 5 minutes
+  enableDeduplication: true
+});
+
+// Execute a query
+const user = await queryClient.query({
+  queryKey: ['user', '1'],
+  path: '/users/1'
+});
+```
+
+## Configuration
+
+### QueryClientConfig
+
+```typescript
+interface QueryClientConfig {
+  // Time before data is considered stale (default: 0)
+  defaultStaleTime?: number;
+  
+  // Time before cache is garbage collected (default: 5 minutes)
+  defaultCacheTime?: number;
+  
+  // Maximum number of queries to cache (default: 100)
+  maxCacheSize?: number;
+  
+  // Refetch stale queries on window focus (default: true)
+  refetchOnWindowFocus?: boolean;
+  
+  // Refetch queries on reconnect (default: true)
+  refetchOnReconnect?: boolean;
+  
+  // Global lifecycle callbacks for all queries
+  globalCallbacks?: RequestLifecycleCallbacks;
+  
+  // Enable automatic request deduplication (default: true)
+  enableDeduplication?: boolean;
+}
+```
+
+### Example Configuration
+
+```typescript
+const queryClient = createQueryClient(apiClient, {
+  defaultStaleTime: 10000,  // Data fresh for 10 seconds
+  defaultCacheTime: 600000, // Cache for 10 minutes
+  maxCacheSize: 50,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
+  enableDeduplication: true,
+  globalCallbacks: {
+    onStart: (context) => {
+      console.log('Query started:', context.url);
+    },
+    onSuccess: (data, context) => {
+      console.log('Query succeeded:', context.url);
+    },
+    onError: (error, context) => {
+      console.error('Query failed:', error.message);
+    }
+  }
+});
+```
+
+## Queries
+
+### Basic Query
+
+```typescript
+interface QueryOptions<T> {
+  // Unique identifier for caching (required)
+  queryKey: string[];
+  
+  // API endpoint path (required)
+  path: string;
+  
+  // HTTP method (default: "GET")
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  
+  // Time before data is stale (overrides default)
+  staleTime?: number;
+  
+  // Time before cache is cleared (overrides default)
+  cacheTime?: number;
+  
+  // Refetch options
+  refetchOnWindowFocus?: boolean;
+  refetchOnReconnect?: boolean;
+  refetchInterval?: number;
+  
+  // Lifecycle callbacks
+  callbacks?: RequestLifecycleCallbacks<T>;
+  
+  // Initial data (used before first fetch)
+  initialData?: T;
+  
+  // Placeholder data (shown while loading)
+  placeholderData?: T;
+  
+  // All ApiClient RequestOptions are also available
+  searchParams?: Record<string, any>;
+  headers?: HeadersInit;
+  body?: any;
+  // ... etc
+}
+```
+
+### Query Examples
+
+```typescript
+// Simple query
+const user = await queryClient.query<User>({
+  queryKey: ['user', userId],
+  path: `/users/${userId}`
+});
+
+// Query with parameters
+const users = await queryClient.query<User[]>({
+  queryKey: ['users', { page: 1, role: 'admin' }],
+  path: '/users',
+  searchParams: {
+    page: 1,
+    limit: 20,
+    role: 'admin'
+  }
+});
+
+// Query with lifecycle callbacks
+const data = await queryClient.query<Data>({
+  queryKey: ['data', id],
+  path: `/data/${id}`,
+  staleTime: 60000,  // Fresh for 1 minute
+  callbacks: {
+    onStart: (context) => {
+      console.log('Fetching data...');
+    },
+    onSuccess: (data) => {
+      console.log('Data loaded:', data);
+    },
+    onError: (error) => {
+      toast.error('Failed to load data');
+    }
+  }
+});
+```
+
+## Request State
+
+QueryClient tracks the state of each request:
+
+```typescript
+type RequestState<T> = {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  data?: T;
+  error?: ApiError;
+  isFetching: boolean;
+  isStale: boolean;
+};
+
+// Get current state
+const state = queryClient.getQueryState<User>(['user', '1']);
+
+if (state?.status === 'loading') {
+  console.log('Loading...');
+} else if (state?.status === 'success') {
+  console.log('Data:', state.data);
+} else if (state?.status === 'error') {
+  console.error('Error:', state.error);
+}
+```
+
+## Mutations
+
+Mutations are used for creating, updating, or deleting data:
+
+```typescript
+interface MutationOptions<T> {
+  // API endpoint path (required)
+  path: string;
+  
+  // HTTP method (default: "POST")
+  method?: "POST" | "PUT" | "PATCH" | "DELETE";
+  
+  // Request body
+  body?: any;
+  
+  // Lifecycle callbacks
+  callbacks?: RequestLifecycleCallbacks<T>;
+  
+  // Called before mutation executes
+  onMutate?: (variables: unknown) => void | Promise<void>;
+  
+  // Query keys to invalidate on success
+  invalidateQueries?: string[][];
+  
+  // All ApiClient RequestOptions are also available
+}
+```
+
+### Mutation Examples
+
+```typescript
+// Create user
+const newUser = await queryClient.mutate<User>({
+  path: '/users',
+  method: 'POST',
+  body: {
+    name: 'John Doe',
+    email: 'john@example.com'
+  },
+  invalidateQueries: [
+    ['users']  // Invalidate all user queries
+  ]
+});
+
+// Update user
+const updated = await queryClient.mutate<User>({
+  path: `/users/${userId}`,
+  method: 'PUT',
+  body: updatedData,
+  onMutate: (variables) => {
+    // Optimistic update
+    queryClient.setQueryData(['user', userId], variables);
+  },
+  invalidateQueries: [
+    ['user', userId],
+    ['users']
+  ],
+  callbacks: {
+    onSuccess: () => {
+      toast.success('User updated successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to update user');
+    }
+  }
+});
+
+// Delete user
+await queryClient.mutate({
+  path: `/users/${userId}`,
+  method: 'DELETE',
+  invalidateQueries: [['users']]
+});
+```
+
+## Cache Management
+
+### Getting Cached Data
+
+```typescript
+// Get cached data without triggering a request
+const cachedUser = queryClient.getQueryData<User>(['user', '1']);
+
+if (cachedUser) {
+  console.log('Using cached data:', cachedUser);
+}
+```
+
+### Setting Cache Data Manually
+
+```typescript
+// Manually set cache data (useful for optimistic updates)
+queryClient.setQueryData(['user', '1'], {
+  id: 1,
+  name: 'Updated Name',
+  email: 'updated@example.com'
+});
+```
+
+### Invalidating Queries
+
+```typescript
+// Invalidate specific query
+queryClient.invalidateQueries(['user', '1']);
+
+// Invalidate all user queries
+queryClient.invalidateQueries(['users']);
+
+// Invalidate multiple patterns
+queryClient.invalidateQueries(['user']);
+queryClient.invalidateQueries(['posts']);
+```
+
+### Refetching Queries
+
+```typescript
+// Refetch specific query (currently just invalidates)
+await queryClient.refetchQueries(['user', '1']);
+```
+
+### Clearing All Cache
+
+```typescript
+// Clear all cached data and states
+queryClient.clearCache();
+```
+
+## Lifecycle Callbacks
+
+Listen to query lifecycle events:
+
+```typescript
+interface RequestLifecycleCallbacks<T> {
+  onStart?: (context: RequestContext) => void | Promise<void>;
+  onSuccess?: (data: T, context: RequestContext) => void | Promise<void>;
+  onError?: (error: ApiError, context: RequestContext) => void | Promise<void>;
+  onSettled?: (data: T | undefined, error: ApiError | undefined, context: RequestContext) => void | Promise<void>;
+}
+
+const data = await queryClient.query({
+  queryKey: ['data', id],
+  path: `/data/${id}`,
+  callbacks: {
+    onStart: (context) => {
+      showLoadingSpinner();
+    },
+    onSuccess: (data, context) => {
+      updateUI(data);
+    },
+    onError: (error, context) => {
+      showErrorMessage(error.message);
+    },
+    onSettled: (data, error, context) => {
+      hideLoadingSpinner();
+      console.log('Request completed:', context.requestId);
+    }
+  }
+});
+```
+
+## Event Listeners
+
+Subscribe to query events:
+
+```typescript
+// Listen to query start
+const unsubscribe = queryClient.on('query:start', ({ context }) => {
+  console.log('Query started:', context.url);
+});
+
+// Listen to successful queries
+queryClient.on('query:success', ({ data, context }) => {
+  console.log('Query succeeded:', data);
+});
+
+// Listen to query errors
+queryClient.on('query:error', ({ error, context }) => {
+  console.error('Query failed:', error.message);
+});
+
+// Listen to state changes
+queryClient.on('state:change', ({ state, context }) => {
+  console.log('State changed:', state.status);
+});
+
+// Listen to cache updates
+queryClient.on('cache:update', ({ queryKey, data }) => {
+  console.log('Cache updated:', queryKey);
+});
+
+// Listen to cache invalidation
+queryClient.on('cache:invalidate', ({ queryKey }) => {
+  console.log('Cache invalidated:', queryKey);
+});
+
+// Unsubscribe when done
+unsubscribe();
+```
+
+## Request Deduplication
+
+Automatic deduplication prevents multiple identical requests:
+
+```typescript
+// Enable deduplication (default: true)
+const queryClient = createQueryClient(apiClient, {
+  enableDeduplication: true
+});
+
+// These will only make ONE request
+const [user1, user2, user3] = await Promise.all([
+  queryClient.query({ queryKey: ['user', '1'], path: '/users/1' }),
+  queryClient.query({ queryKey: ['user', '1'], path: '/users/1' }),
+  queryClient.query({ queryKey: ['user', '1'], path: '/users/1' })
+]);
+
+// All three will receive the same result
+```
+
+## Cache Statistics
+
+```typescript
+const stats = queryClient.getCacheStats();
+console.log('Cache stats:', stats);
+```
+
+## Advanced Patterns
+
+### Optimistic Updates
+
+```typescript
+async function updateUser(userId: string, updates: Partial<User>) {
+  // Store previous data for rollback
+  const previousUser = queryClient.getQueryData<User>(['user', userId]);
+  
+  try {
+    // Optimistically update the cache
+    queryClient.setQueryData(['user', userId], {
+      ...previousUser,
+      ...updates
+    });
+    
+    // Make the actual mutation
+    const result = await queryClient.mutate<User>({
+      path: `/users/${userId}`,
+      method: 'PATCH',
+      body: updates
+    });
+    
+    return result;
+  } catch (error) {
+    // Rollback on error
+    if (previousUser) {
+      queryClient.setQueryData(['user', userId], previousUser);
+    }
+    throw error;
+  }
+}
+```
+
+### Dependent Queries
+
+```typescript
+// First query: get user
+const user = await queryClient.query<User>({
+  queryKey: ['user', userId],
+  path: `/users/${userId}`
+});
+
+// Second query: get user's posts (depends on user)
+if (user) {
+  const posts = await queryClient.query<Post[]>({
+    queryKey: ['posts', 'user', userId],
+    path: `/users/${userId}/posts`
+  });
+}
+```
+
+### Infinite Queries (Pagination)
+
+```typescript
+let page = 1;
+const allUsers: User[] = [];
+
+while (true) {
+  const response = await queryClient.query<{ users: User[], hasMore: boolean }>({
+    queryKey: ['users', 'infinite', page],
+    path: '/users',
+    searchParams: { page, limit: 20 }
+  });
+  
+  allUsers.push(...response.users);
+  
+  if (!response.hasMore) break;
+  page++;
+}
+```
+
+## Best Practices
+
+### 1. Use Consistent Query Keys
+
+```typescript
+// Good: Hierarchical and predictable
+['users']                    // All users
+['users', userId]            // Single user
+['users', userId, 'posts']   // User's posts
+
+// Bad: Inconsistent
+['user-1']
+['userById', userId]
+```
+
+### 2. Invalidate Related Queries
+
+```typescript
+await queryClient.mutate({
+  path: `/users/${userId}`,
+  method: 'PUT',
+  body: updates,
+  invalidateQueries: [
+    ['user', userId],        // Invalidate single user
+    ['users'],               // Invalidate user list
+    ['users', userId]        // Invalidate any user-related queries
+  ]
+});
+```
+
+### 3. Set Appropriate Stale Times
+
+```typescript
+// Frequently changing data: short stale time
+const liveData = await queryClient.query({
+  queryKey: ['stock-price', symbol],
+  path: `/stocks/${symbol}`,
+  staleTime: 5000  // 5 seconds
+});
+
+// Rarely changing data: long stale time
+const config = await queryClient.query({
+  queryKey: ['config'],
+  path: '/config',
+  staleTime: 3600000  // 1 hour
+});
+```
+
+## Related
+
+- [ApiClient Guide](/guides/api-client)
+- [Framework Integration](/guides/framework-integration)
+- [Best Practices](/guides/best-practices)

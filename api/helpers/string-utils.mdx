@@ -1,0 +1,561 @@
+---
+title: 'StringUtils'
+description: 'Comprehensive string manipulation utilities for formatting, transformation, and validation'
+---
+
+## Overview
+
+StringUtils provides a comprehensive set of string manipulation methods for common operations like slugification, capitalization, case conversion, truncation, masking, and more. All methods handle null/undefined inputs safely.
+
+## Import
+
+```typescript
+import { StringUtils } from '@bytekit/utils/helpers';
+```
+
+## Methods
+
+### removeDiacritics
+
+Removes diacritics (accent marks) from a string.
+
+<ParamField path="value" type="string | null | undefined">
+  The input string to process
+</ParamField>
+
+**Returns:** `string` - String with diacritics removed
+
+```typescript
+StringUtils.removeDiacritics('café');
+// Returns: 'cafe'
+
+StringUtils.removeDiacritics('Héllö Wörld');
+// Returns: 'Hello World'
+
+StringUtils.removeDiacritics(null);
+// Returns: ''
+```
+
+---
+
+### slugify
+
+Converts a string to a URL-friendly slug.
+
+<ParamField path="value" type="string | null | undefined">
+  The input string to slugify
+</ParamField>
+
+<ParamField path="options" type="SlugifyOptions">
+  Optional configuration object
+  
+  <ParamField path="separator" type="string" default="-">
+    Character to use as separator
+  </ParamField>
+  
+  <ParamField path="lowercase" type="boolean" default="true">
+    Convert to lowercase
+  </ParamField>
+</ParamField>
+
+**Returns:** `string` - URL-friendly slug
+
+```typescript
+StringUtils.slugify('Hello World!');
+// Returns: 'hello-world'
+
+StringUtils.slugify('Product Name 2024', { separator: '_' });
+// Returns: 'product_name_2024'
+
+StringUtils.slugify('Café Münchën', { lowercase: false });
+// Returns: 'Cafe-Munchen'
+```
+
+**Edge Cases:**
+- Removes diacritics automatically
+- Trims leading/trailing separators
+- Collapses multiple separators into one
+
+---
+
+### compactWhitespace
+
+Replaces multiple whitespace characters with a single space and trims edges.
+
+<ParamField path="value" type="string | null | undefined">
+  The input string to compact
+</ParamField>
+
+**Returns:** `string` - Compacted string
+
+```typescript
+StringUtils.compactWhitespace('  Hello    World  \n\t Test  ');
+// Returns: 'Hello World Test'
+
+StringUtils.compactWhitespace('Multiple   spaces');
+// Returns: 'Multiple spaces'
+```
+
+---
+
+### capitalize
+
+Capitalizes the first character and lowercases the rest.
+
+<ParamField path="value" type="string | null | undefined">
+  The input string to capitalize
+</ParamField>
+
+<ParamField path="locale" type="string" default="es-AR">
+  Locale for case conversion
+</ParamField>
+
+**Returns:** `string` - Capitalized string
+
+```typescript
+StringUtils.capitalize('hello world');
+// Returns: 'Hello world'
+
+StringUtils.capitalize('HELLO');
+// Returns: 'Hello'
+
+StringUtils.capitalize('istanbul', 'tr-TR');
+// Returns: 'İstanbul' (Turkish locale)
+```
+
+---
+
+### capitalizeWords
+
+Capitalizes the first character of each word.
+
+<ParamField path="value" type="string | null | undefined">
+  The input string to process
+</ParamField>
+
+<ParamField path="locale" type="string" default="es-AR">
+  Locale for case conversion
+</ParamField>
+
+**Returns:** `string` - String with capitalized words
+
+```typescript
+StringUtils.capitalizeWords('hello world');
+// Returns: 'Hello World'
+
+StringUtils.capitalizeWords('the quick brown fox');
+// Returns: 'The Quick Brown Fox'
+```
+
+---
+
+### truncate
+
+Truncates a string to a maximum length with ellipsis.
+
+<ParamField path="value" type="string | null | undefined">
+  The input string to truncate
+</ParamField>
+
+<ParamField path="maxLength" type="number" required>
+  Maximum length including ellipsis
+</ParamField>
+
+<ParamField path="options" type="TruncateOptions">
+  Optional configuration object
+  
+  <ParamField path="ellipsis" type="string" default="…">
+    String to append when truncated
+  </ParamField>
+  
+  <ParamField path="respectWordBoundaries" type="boolean" default="true">
+    Avoid cutting words in the middle
+  </ParamField>
+</ParamField>
+
+**Returns:** `string` - Truncated string
+
+```typescript
+StringUtils.truncate('This is a long text', 10);
+// Returns: 'This is…'
+
+StringUtils.truncate('Hello world', 8, { ellipsis: '...' });
+// Returns: 'Hello...'
+
+StringUtils.truncate('Word boundaries test', 15, { 
+  respectWordBoundaries: false 
+});
+// Returns: 'Word boundari…'
+```
+
+**Validation:**
+- Returns original string if it's shorter than maxLength
+- Always reserves space for ellipsis in the count
+
+---
+
+### mask
+
+Masks part of a string for privacy (e.g., credit cards, emails).
+
+<ParamField path="value" type="string | null | undefined">
+  The input string to mask
+</ParamField>
+
+<ParamField path="options" type="MaskOptions">
+  Optional configuration object
+  
+  <ParamField path="maskChar" type="string" default="•">
+    Character to use for masking
+  </ParamField>
+  
+  <ParamField path="visibleStart" type="number" default="0">
+    Number of characters visible at start
+  </ParamField>
+  
+  <ParamField path="visibleEnd" type="number" default="4">
+    Number of characters visible at end
+  </ParamField>
+</ParamField>
+
+**Returns:** `string` - Masked string
+
+```typescript
+StringUtils.mask('1234567890');
+// Returns: '••••••7890'
+
+StringUtils.mask('user@example.com', { 
+  visibleStart: 2, 
+  visibleEnd: 10 
+});
+// Returns: 'us••xample.com'
+
+StringUtils.mask('secret', { maskChar: '*', visibleEnd: 2 });
+// Returns: '****et'
+```
+
+**Edge Cases:**
+- Returns original string if visibleStart + visibleEnd >= length
+- Returns empty string for null/undefined input
+
+---
+
+### interpolate
+
+Replaces placeholders in a template string with values.
+
+<ParamField path="template" type="string" required>
+  Template string with {{placeholder}} syntax
+</ParamField>
+
+<ParamField path="params" type="Record<string, unknown>" required>
+  Object containing values for placeholders
+</ParamField>
+
+<ParamField path="options" type="InterpolateOptions">
+  Optional configuration object
+  
+  <ParamField path="strict" type="boolean" default="false">
+    Throw error for missing values
+  </ParamField>
+  
+  <ParamField path="fallback" type="string" default="''">
+    Value to use when key is missing
+  </ParamField>
+  
+  <ParamField path="transform" type="(value: unknown, key: string) => string">
+    Function to transform values before interpolation
+  </ParamField>
+</ParamField>
+
+**Returns:** `string` - Interpolated string
+
+```typescript
+StringUtils.interpolate('Hello {{name}}!', { name: 'Alice' });
+// Returns: 'Hello Alice!'
+
+StringUtils.interpolate('{{user.name}} has {{user.points}} points', {
+  user: { name: 'Bob', points: 100 }
+});
+// Returns: 'Bob has 100 points'
+
+StringUtils.interpolate('Value: {{missing}}', {}, { fallback: 'N/A' });
+// Returns: 'Value: N/A'
+
+StringUtils.interpolate('{{price}}', 
+  { price: 19.99 }, 
+  { transform: (v) => `$${v}` }
+);
+// Returns: '$19.99'
+```
+
+**Features:**
+- Supports nested paths: `{{user.profile.name}}`
+- Supports array indices: `{{items[0]}}`
+- Throws error in strict mode for missing keys
+
+---
+
+### initials
+
+Extracts initials from a name or phrase.
+
+<ParamField path="value" type="string | null | undefined">
+  The input string to extract initials from
+</ParamField>
+
+<ParamField path="options" type="InitialsOptions">
+  Optional configuration object
+  
+  <ParamField path="limit" type="number" default="2">
+    Maximum number of initials to extract
+  </ParamField>
+  
+  <ParamField path="uppercase" type="boolean" default="true">
+    Convert initials to uppercase
+  </ParamField>
+</ParamField>
+
+**Returns:** `string` - Extracted initials
+
+```typescript
+StringUtils.initials('John Doe');
+// Returns: 'JD'
+
+StringUtils.initials('Alice Bob Charlie', { limit: 3 });
+// Returns: 'ABC'
+
+StringUtils.initials('jane smith', { uppercase: false });
+// Returns: 'js'
+```
+
+---
+
+### toQueryString
+
+Converts an object to a URL query string.
+
+<ParamField path="params" type="Record<string, unknown> | null | undefined">
+  Object to convert to query string
+</ParamField>
+
+<ParamField path="options" type="QueryStringOptions">
+  Optional configuration object
+  
+  <ParamField path="arrayFormat" type="'repeat' | 'bracket' | 'comma'" default="repeat">
+    Format for array serialization
+  </ParamField>
+  
+  <ParamField path="skipNull" type="boolean" default="true">
+    Skip null values
+  </ParamField>
+  
+  <ParamField path="skipEmptyString" type="boolean" default="false">
+    Skip empty string values
+  </ParamField>
+  
+  <ParamField path="encode" type="boolean" default="true">
+    URL encode keys and values
+  </ParamField>
+  
+  <ParamField path="sortKeys" type="boolean" default="true">
+    Sort keys alphabetically
+  </ParamField>
+</ParamField>
+
+**Returns:** `string` - URL query string
+
+```typescript
+StringUtils.toQueryString({ name: 'Alice', age: 30 });
+// Returns: 'age=30&name=Alice'
+
+StringUtils.toQueryString({ tags: ['red', 'blue'] });
+// Returns: 'tags=red&tags=blue'
+
+StringUtils.toQueryString({ tags: ['red', 'blue'] }, { 
+  arrayFormat: 'bracket' 
+});
+// Returns: 'tags[]=red&tags[]=blue'
+
+StringUtils.toQueryString({ ids: [1, 2, 3] }, { 
+  arrayFormat: 'comma' 
+});
+// Returns: 'ids=1,2,3'
+
+StringUtils.toQueryString({ 
+  user: { name: 'Bob', active: true } 
+});
+// Returns: 'user[active]=true&user[name]=Bob'
+```
+
+**Features:**
+- Handles nested objects
+- Multiple array formats
+- Automatic Date serialization to ISO string
+- Boolean serialization to 'true'/'false'
+
+---
+
+### camelCase
+
+Converts a string to camelCase.
+
+<ParamField path="value" type="string | null | undefined">
+  The input string to convert
+</ParamField>
+
+**Returns:** `string` - camelCase string
+
+```typescript
+StringUtils.camelCase('hello world');
+// Returns: 'helloWorld'
+
+StringUtils.camelCase('user-name-field');
+// Returns: 'userNameField'
+
+StringUtils.camelCase('PascalCaseString');
+// Returns: 'pascalCaseString'
+```
+
+---
+
+### pascalCase
+
+Converts a string to PascalCase.
+
+<ParamField path="value" type="string | null | undefined">
+  The input string to convert
+</ParamField>
+
+**Returns:** `string` - PascalCase string
+
+```typescript
+StringUtils.pascalCase('hello world');
+// Returns: 'HelloWorld'
+
+StringUtils.pascalCase('user-profile-component');
+// Returns: 'UserProfileComponent'
+
+StringUtils.pascalCase('camelCaseString');
+// Returns: 'CamelCaseString'
+```
+
+---
+
+### kebabCase
+
+Converts a string to kebab-case.
+
+<ParamField path="value" type="string | null | undefined">
+  The input string to convert
+</ParamField>
+
+**Returns:** `string` - kebab-case string
+
+```typescript
+StringUtils.kebabCase('Hello World');
+// Returns: 'hello-world'
+
+StringUtils.kebabCase('userProfileName');
+// Returns: 'user-profile-name'
+
+StringUtils.kebabCase('PascalCase123Test');
+// Returns: 'pascal-case-123-test'
+```
+
+---
+
+### snakeCase
+
+Converts a string to snake_case.
+
+<ParamField path="value" type="string | null | undefined">
+  The input string to convert
+</ParamField>
+
+**Returns:** `string` - snake_case string
+
+```typescript
+StringUtils.snakeCase('Hello World');
+// Returns: 'hello_world'
+
+StringUtils.snakeCase('userProfileName');
+// Returns: 'user_profile_name'
+
+StringUtils.snakeCase('CamelCase123Test');
+// Returns: 'camel_case_123_test'
+```
+
+## Type Definitions
+
+```typescript
+interface SlugifyOptions {
+  separator?: string;
+  lowercase?: boolean;
+}
+
+interface TruncateOptions {
+  ellipsis?: string;
+  respectWordBoundaries?: boolean;
+}
+
+interface MaskOptions {
+  maskChar?: string;
+  visibleStart?: number;
+  visibleEnd?: number;
+}
+
+interface InterpolateOptions {
+  strict?: boolean;
+  fallback?: string;
+  transform?: (value: unknown, key: string) => string;
+}
+
+interface InitialsOptions {
+  limit?: number;
+  uppercase?: boolean;
+}
+
+interface QueryStringOptions {
+  arrayFormat?: 'repeat' | 'bracket' | 'comma';
+  skipNull?: boolean;
+  skipEmptyString?: boolean;
+  encode?: boolean;
+  sortKeys?: boolean;
+}
+```
+
+## Best Practices
+
+### Input Validation
+
+All methods safely handle null and undefined inputs by converting them to empty strings:
+
+```typescript
+StringUtils.capitalize(null); // Returns: ''
+StringUtils.slugify(undefined); // Returns: ''
+```
+
+### Chaining Operations
+
+```typescript
+const processedString = StringUtils.compactWhitespace(
+  StringUtils.capitalize('  hello   world  ')
+);
+// Returns: 'Hello world'
+```
+
+### Query String Building
+
+For complex API requests:
+
+```typescript
+const filters = {
+  categories: ['tech', 'design'],
+  dateRange: { start: '2024-01-01', end: '2024-12-31' },
+  active: true
+};
+
+const queryString = StringUtils.toQueryString(filters);
+// Returns: 'active=true&categories=tech&categories=design&dateRange[end]=2024-12-31&dateRange[start]=2024-01-01'
+```

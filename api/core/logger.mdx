@@ -1,0 +1,119 @@
+---
+title: Logger
+description: Structured logging with levels, namespaces, and custom transports
+---
+
+## Overview
+
+The Logger provides structured logging with log levels, namespaces, custom transports, and works in both Node.js and browsers.
+
+## Import
+
+```typescript
+import { createLogger, Logger } from "bytekit";
+// or
+import { createLogger } from "bytekit/logger";
+```
+
+## Create Logger
+
+```typescript
+const logger = createLogger({
+  namespace: "app",
+  level: "info",
+  transports: [consoleTransport()]
+});
+```
+
+<ParamField path="options" type="LoggerOptions">
+  <Expandable title="properties">
+    <ParamField path="namespace" type="string" optional>
+      Logger namespace for identification
+    </ParamField>
+    <ParamField path="level" type="LogLevel" optional default="info">
+      Minimum log level: "silent" | "error" | "warn" | "info" | "debug"
+    </ParamField>
+    <ParamField path="transports" type="Transport[]" optional>
+      Custom transports for log output
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Methods
+
+### error
+
+```typescript
+logger.error(message: string, meta?: Record<string, unknown>)
+```
+
+### warn
+
+```typescript
+logger.warn(message: string, meta?: Record<string, unknown>)
+```
+
+### info
+
+```typescript
+logger.info(message: string, meta?: Record<string, unknown>)
+```
+
+### debug
+
+```typescript
+logger.debug(message: string, meta?: Record<string, unknown>)
+```
+
+### child
+
+Create a child logger with additional namespace.
+
+```typescript
+const childLogger = logger.child("submodule");
+```
+
+## Usage Example
+
+```typescript
+import { createLogger } from "bytekit";
+
+const logger = createLogger({
+  namespace: "api",
+  level: "info"
+});
+
+logger.info("User logged in", {
+  userId: "123",
+  timestamp: new Date().toISOString()
+});
+
+logger.error("Failed to fetch data", {
+  error: error.message,
+  endpoint: "/users"
+});
+
+// Child logger
+const dbLogger = logger.child("database");
+dbLogger.debug("Query executed", { query: "SELECT * FROM users" });
+```
+
+## Custom Transports
+
+```typescript
+import { createLogger, Transport } from "bytekit";
+
+const fileTransport: Transport = (entry) => {
+  // Write to file
+  fs.appendFileSync("app.log", JSON.stringify(entry) + "\n");
+};
+
+const logger = createLogger({
+  transports: [fileTransport]
+});
+```
+
+## See Also
+
+- [Logging & Profiling Guide](/guides/logging-profiling)
+- [Profiler](/api/core/profiler)

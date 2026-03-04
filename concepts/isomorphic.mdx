@@ -1,0 +1,512 @@
+---
+title: Isomorphic Design
+description: Learn how ByteKit works seamlessly in both Node.js and browser environments
+---
+
+## What is Isomorphic Code?
+
+Isomorphic (or universal) code runs identically in both Node.js and browser environments. ByteKit is designed from the ground up to work anywhere JavaScript runs.
+
+<Note>
+  ByteKit uses native Web APIs like `fetch`, `URL`, `AbortController`, and `Headers` that are now available in both Node.js and browsers.
+</Note>
+
+## Native Fetch Usage
+
+ByteKit's `ApiClient` uses the native `fetch` API, which is available in:
+
+- **Node.js 18+** - Native fetch support
+- **All modern browsers** - Full fetch API support
+- **Deno** - Native fetch support
+- **Bun** - Native fetch support
+
+```typescript src/utils/core/ApiClient.ts
+export class ApiClient {
+  private readonly fetchImpl: typeof fetch;
+
+  constructor({ fetchImpl, ...config }: ApiClientConfig) {
+    // Use provided fetch or global fetch
+    this.fetchImpl = fetchImpl ?? globalThis.fetch.bind(globalThis);
+  }
+
+  async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    const response = await this.fetchImpl(url, init);
+    // ...
+  }
+}
+```
+
+### Why Native Fetch?
+
+<CardGroup cols={2}>
+  <Card title="Zero Dependencies" icon="package">
+    No need for axios, node-fetch, or other HTTP libraries
+  </Card>
+  <Card title="Universal API" icon="globe">
+    Same API across all JavaScript runtimes
+  </Card>
+  <Card title="Modern Standards" icon="star">
+    Built on web standards (WHATWG Fetch)
+  </Card>
+  <Card title="Better Performance" icon="rocket">
+    Native implementation is faster than polyfills
+  </Card>
+</CardGroup>
+
+## Platform Requirements
+
+### Node.js
+
+```json package.json
+{
+  "engines": {
+    "node": ">=18"
+  }
+}
+```
+
+Node.js 18+ includes:
+- Native `fetch` API
+- `URL` and `URLSearchParams`
+- `Headers`, `Request`, `Response`
+- `AbortController` and `AbortSignal`
+
+### Browsers
+
+All modern browsers support the required APIs:
+
+- Chrome 42+
+- Firefox 39+
+- Safari 10.1+
+- Edge 14+
+
+## Usage in Different Environments
+
+### Node.js Server
+
+```typescript server.ts
+import { ApiClient } from 'bytekit/api-client';
+import { Logger } from 'bytekit/logger';
+
+const logger = new Logger({ level: 'info' });
+
+const client = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  logger,
+  defaultHeaders: {
+    'User-Agent': 'MyApp/1.0'
+  }
+});
+
+// Works identically in Node.js
+async function fetchUsers() {
+  return client.get('/users');
+}
+```
+
+### Browser Application
+
+```typescript app.ts
+import { ApiClient } from 'bytekit/api-client';
+import { Logger } from 'bytekit/logger';
+
+const logger = new Logger({ level: 'debug' });
+
+const client = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  logger,
+  defaultHeaders: {
+    'X-Requested-With': 'XMLHttpRequest'
+  }
+});
+
+// Works identically in browsers
+async function fetchUsers() {
+  return client.get('/users');
+}
+```
+
+### Edge Functions (Vercel, Cloudflare)
+
+```typescript api/users.ts
+import { ApiClient } from 'bytekit/api-client';
+
+export default async function handler(req: Request) {
+  const client = new ApiClient({
+    baseUrl: process.env.API_URL
+  });
+
+  const users = await client.get('/users');
+  return Response.json(users);
+}
+```
+
+### React Native
+
+```typescript App.tsx
+import { ApiClient } from 'bytekit/api-client';
+import { useEffect, useState } from 'react';
+
+const client = new ApiClient({
+  baseUrl: 'https://api.example.com'
+});
+
+function App() {
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    client.get('/users').then(setUsers);
+  }, []);
+
+  return <UserList users={users} />;
+}
+```
+
+## Platform-Specific Considerations
+
+### Storage Utilities
+
+Some utilities are browser-specific:
+
+```typescript
+import { StorageManager } from 'bytekit/storage-utils';
+
+// ✅ Browser
+if (typeof window !== 'undefined') {
+  const storage = new StorageManager(localStorage);
+  storage.set('key', 'value', 60000); // TTL: 1 minute
+}
+
+// ❌ Node.js - localStorage is not available
+// Use a different storage solution (file system, Redis, etc.)
+```
+
+### Environment Variables
+
+```typescript
+import { EnvManager } from 'bytekit/env-manager';
+
+// Works in both environments
+const apiUrl = EnvManager.get('API_URL', 'https://api.example.com');
+
+// Node.js: reads from process.env
+// Browser: reads from import.meta.env (Vite) or process.env (webpack)
+```
+
+### WebSocket Support
+
+```typescript
+import { WebSocketHelper } from 'bytekit/websocket';
+
+// Works in both Node.js and browsers
+const ws = new WebSocketHelper('wss://api.example.com/ws', {
+  reconnect: true,
+  reconnectDelay: 1000
+});
+
+ws.on('message', (data) => {
+  console.log('Received:', data);
+});
+
+ws.connect();
+```
+
+## Handling Platform Differences
+
+### Conditional Imports
+
+```typescript
+// Dynamic import based on environment
+if (typeof window !== 'undefined') {
+  // Browser-specific code
+  const { StorageManager } = await import('bytekit/storage-utils');
+  const storage = new StorageManager(localStorage);
+} else {
+  // Node.js-specific code
+  const { promises: fs } = await import('fs');
+}
+```
+
+### Feature Detection
+
+```typescript
+import { ApiClient } from 'bytekit/api-client';
+
+function createClient() {
+  const config = {
+    baseUrl: 'https://api.example.com'
+  };
+
+  // Add Node.js-specific headers
+  if (typeof process !== 'undefined') {
+    config.defaultHeaders = {
+      'User-Agent': `MyApp/${process.env.npm_package_version}`
+    };
+  }
+
+  return new ApiClient(config);
+}
+```
+
+### Custom Fetch Implementation
+
+You can provide a custom `fetch` implementation for special cases:
+
+```typescript
+import { ApiClient } from 'bytekit/api-client';
+import nodeFetch from 'node-fetch'; // If you need HTTP/2 or other features
+
+const client = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  fetchImpl: nodeFetch as typeof fetch
+});
+```
+
+## Cross-Platform Examples
+
+### Example 1: Universal API Client
+
+```typescript api-client.ts
+import { ApiClient } from 'bytekit/api-client';
+import { Logger } from 'bytekit/logger';
+
+// Works in both Node.js and browsers
+export function createApiClient() {
+  const logger = new Logger({
+    level: process.env.NODE_ENV === 'production' ? 'info' : 'debug'
+  });
+
+  return new ApiClient({
+    baseUrl: process.env.API_URL || 'https://api.example.com',
+    logger,
+    timeoutMs: 15000,
+    retryPolicy: {
+      maxAttempts: 3,
+      initialDelayMs: 1000
+    }
+  });
+}
+
+// Usage in Node.js
+import { createApiClient } from './api-client';
+const client = createApiClient();
+const users = await client.get('/users');
+
+// Usage in Browser
+import { createApiClient } from './api-client';
+const client = createApiClient();
+const users = await client.get('/users');
+```
+
+### Example 2: Universal State Management
+
+```typescript store.ts
+import { QueryClient } from 'bytekit/query-client';
+import { ApiClient } from 'bytekit/api-client';
+
+// Works in both Node.js and browsers
+export function createStore() {
+  const apiClient = new ApiClient({
+    baseUrl: 'https://api.example.com'
+  });
+
+  return new QueryClient(apiClient, {
+    defaultStaleTime: 5000,
+    defaultCacheTime: 300000
+  });
+}
+
+// Server-side rendering (Node.js)
+const store = createStore();
+await store.prefetchQuery({
+  queryKey: ['users'],
+  path: '/users'
+});
+
+// Client-side (Browser)
+const store = createStore();
+const { data, loading } = await store.query({
+  queryKey: ['users'],
+  path: '/users'
+});
+```
+
+### Example 3: Universal Utilities
+
+```typescript utils.ts
+import { StringUtils } from 'bytekit/string-utils';
+import { DateUtils } from 'bytekit/date-utils';
+import { ArrayUtils } from 'bytekit/array-utils';
+
+// These work identically in all environments
+export function formatUserData(users: User[]) {
+  return users.map(user => ({
+    id: user.id,
+    name: user.name,
+    slug: StringUtils.slugify(user.name),
+    joined: DateUtils.format(user.createdAt, 'YYYY-MM-DD'),
+    tags: ArrayUtils.unique(user.tags)
+  }));
+}
+
+// Works in Node.js
+import { formatUserData } from './utils';
+const formatted = formatUserData(users);
+
+// Works in Browser
+import { formatUserData } from './utils';
+const formatted = formatUserData(users);
+```
+
+## Testing Across Platforms
+
+### Vitest Configuration
+
+ByteKit uses Vitest for testing in both Node.js and browser environments:
+
+```typescript vitest.config.ts
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'node', // or 'jsdom' for browser tests
+    globals: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html']
+    }
+  }
+});
+```
+
+### Universal Tests
+
+```typescript api-client.test.ts
+import { describe, it, expect } from 'vitest';
+import { ApiClient } from 'bytekit/api-client';
+
+// These tests run in both Node.js and browser environments
+describe('ApiClient', () => {
+  it('should make GET requests', async () => {
+    const client = new ApiClient({ baseUrl: 'https://api.example.com' });
+    const data = await client.get('/users');
+    expect(data).toBeDefined();
+  });
+
+  it('should handle errors', async () => {
+    const client = new ApiClient({ baseUrl: 'https://api.example.com' });
+    await expect(client.get('/not-found')).rejects.toThrow();
+  });
+});
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Use Feature Detection">
+    Always check for platform-specific features before using them:
+    
+    ```typescript
+    if (typeof localStorage !== 'undefined') {
+      // Use localStorage
+    }
+    ```
+  </Step>
+  
+  <Step title="Provide Fallbacks">
+    Offer alternative implementations for different platforms:
+    
+    ```typescript
+    const storage = typeof localStorage !== 'undefined'
+      ? new StorageManager(localStorage)
+      : new MemoryStorage();
+    ```
+  </Step>
+  
+  <Step title="Test on All Platforms">
+    Run tests in both Node.js and browser environments:
+    
+    ```bash
+    npm run test:node
+    npm run test:browser
+    ```
+  </Step>
+  
+  <Step title="Use Environment Variables">
+    Configure behavior based on environment:
+    
+    ```typescript
+    const isDev = process.env.NODE_ENV === 'development';
+    const isBrowser = typeof window !== 'undefined';
+    ```
+  </Step>
+</Steps>
+
+## Common Pitfalls
+
+<AccordionGroup>
+  <Accordion title="Using browser-only APIs in Node.js">
+    **Problem**: `localStorage`, `window`, `document` are not available in Node.js
+    
+    **Solution**: Use feature detection or conditional imports
+    
+    ```typescript
+    if (typeof window !== 'undefined') {
+      // Browser-specific code
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Using Node.js-only APIs in browsers">
+    **Problem**: `fs`, `path`, `os` are not available in browsers
+    
+    **Solution**: Use bundler polyfills or provide browser alternatives
+    
+    ```typescript
+    if (typeof process !== 'undefined') {
+      // Node.js-specific code
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Different fetch behavior">
+    **Problem**: Node.js fetch might behave differently than browser fetch
+    
+    **Solution**: Test thoroughly and use the `fetchImpl` option if needed
+    
+    ```typescript
+    const client = new ApiClient({
+      baseUrl: 'https://api.example.com',
+      fetchImpl: customFetch
+    });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Benefits of Isomorphic Design
+
+<CardGroup cols={2}>
+  <Card title="Code Reusability" icon="recycle">
+    Write once, run everywhere. Share code between server and client.
+  </Card>
+  <Card title="Consistent Behavior" icon="check">
+    Same API behavior in all environments reduces bugs.
+  </Card>
+  <Card title="Server-Side Rendering" icon="server">
+    Use the same code for SSR and client-side rendering.
+  </Card>
+  <Card title="Edge Compatibility" icon="network-wired">
+    Works in edge functions (Vercel, Cloudflare Workers).
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture Overview" icon="sitemap" href="/concepts/architecture">
+    Learn about ByteKit's modular architecture
+  </Card>
+  <Card title="Tree-Shaking Guide" icon="tree" href="/concepts/tree-shaking">
+    Optimize your bundle size
+  </Card>
+</CardGroup>

@@ -1,0 +1,361 @@
+---
+title: 'Type Generation'
+description: 'Generate TypeScript types from live API endpoints'
+---
+
+The `--type` flag enables automatic TypeScript type generation from API responses. ByteKit fetches the endpoint, analyzes the response structure, and creates type-safe interfaces.
+
+## Basic Usage
+
+```bash
+bytekit --type https://api.example.com/users
+```
+
+This command:
+1. Fetches the API endpoint
+2. Analyzes the JSON response structure
+3. Generates TypeScript types
+4. Saves to `src/types/{endpoint}.ts`
+
+## Command Flags
+
+### `--method=<METHOD>`
+
+Specify the HTTP method for the request:
+
+```bash
+bytekit --type --method=POST https://api.example.com/users
+```
+
+**Supported methods:**
+- `GET` (default)
+- `POST`
+- `PUT`
+- `PATCH`
+- `DELETE`
+
+### `--body=<json>`
+
+Include a JSON body in the request:
+
+```bash
+bytekit --type --method=POST --body='{"name":"John","email":"john@example.com"}' https://api.example.com/users
+```
+
+### `--header=<key:value>`
+
+Add custom HTTP headers (can be used multiple times):
+
+```bash
+bytekit --type --header="Authorization: Bearer token123" https://api.example.com/protected
+```
+
+**Multiple headers:**
+```bash
+bytekit --type \
+  --header="Authorization: Bearer token123" \
+  --header="Content-Type: application/json" \
+  --header="X-Custom-Header: value" \
+  https://api.example.com/data
+```
+
+<Note>
+Headers support values with colons (e.g., `Authorization: Bearer key:123`). Only the first colon is used as the separator.
+</Note>
+
+## Examples with Different HTTP Methods
+
+### GET Request
+
+Fetch user data and generate types:
+
+```bash
+bytekit --type https://jsonplaceholder.typicode.com/users/1
+```
+
+**Output:**
+```
+📡 Fetching GET https://jsonplaceholder.typicode.com/users/1...
+✅ Types generated successfully!
+📝 Output: /home/user/project/src/types/users.ts
+
+Generated types:
+──────────────────────────────────────────────────
+// Auto-generated types from API response
+// Generated at 2026-03-04T10:30:00.000Z
+
+export interface Users {
+  id: number;
+  name: string;
+  username: string;
+  email: string;
+  address: {
+    street: string;
+    suite: string;
+    city: string;
+    zipcode: string;
+    geo: {
+      lat: string;
+      lng: string;
+    };
+  };
+  phone: string;
+  website: string;
+  company: {
+    name: string;
+    catchPhrase: string;
+    bs: string;
+  };
+}
+──────────────────────────────────────────────────
+```
+
+### POST Request
+
+Generate types from a POST endpoint:
+
+```bash
+bytekit --type --method=POST --body='{"title":"Test","body":"Content","userId":1}' https://jsonplaceholder.typicode.com/posts
+```
+
+**Generated output:**
+```typescript
+// Auto-generated types from API response
+// Generated at 2026-03-04T10:35:00.000Z
+
+export interface Posts {
+  id: number;
+  title: string;
+  body: string;
+  userId: number;
+}
+```
+
+### PUT Request with Headers
+
+Update a resource and generate types:
+
+```bash
+bytekit --type \
+  --method=PUT \
+  --body='{"title":"Updated Title"}' \
+  --header="Authorization: Bearer abc123" \
+  https://api.example.com/posts/1
+```
+
+### DELETE Request
+
+Generate types from a DELETE response:
+
+```bash
+bytekit --type --method=DELETE https://api.example.com/users/123
+```
+
+## Type Inference
+
+ByteKit intelligently infers TypeScript types from JSON data:
+
+### Primitive Types
+
+| JSON Value | TypeScript Type |
+|------------|----------------|
+| `"hello"` | `string` |
+| `42` | `number` |
+| `true` | `boolean` |
+| `null` | `null` |
+
+### Complex Types
+
+**Arrays:**
+```json
+[1, 2, 3]
+```
+```typescript
+type Data = number[];
+```
+
+**Objects:**
+```json
+{"name": "John", "age": 30}
+```
+```typescript
+export interface Data {
+  name: string;
+  age: number;
+}
+```
+
+**Nested Objects:**
+```json
+{
+  "user": {
+    "profile": {
+      "email": "test@example.com"
+    }
+  }
+}
+```
+```typescript
+export interface Data {
+  user: {
+    profile: {
+      email: string;
+    };
+  };
+}
+```
+
+**Mixed Arrays:**
+```json
+[1, "hello", true]
+```
+```typescript
+type Data = (number | string | boolean)[];
+```
+
+### Optional Properties
+
+Null or undefined values are marked as optional:
+
+```json
+{"name": "John", "email": null}
+```
+```typescript
+export interface Data {
+  name: string;
+  email?: null;
+}
+```
+
+## File Output
+
+### Output Location
+
+Types are saved to `src/types/{endpoint}.ts` where `{endpoint}` is derived from the URL path:
+
+```bash
+bytekit --type https://api.example.com/users
+# → src/types/users.ts
+
+bytekit --type https://api.example.com/posts/123
+# → src/types/posts.ts
+
+bytekit --type https://api.example.com/api/v1/products
+# → src/types/products.ts
+```
+
+### Interface Naming
+
+The interface name is automatically capitalized from the endpoint:
+
+- `/users` → `Users`
+- `/posts` → `Posts`
+- `/products` → `Products`
+
+### Generated File Format
+
+All generated files include:
+- Auto-generation comment
+- Timestamp
+- Exported interface
+
+```typescript
+// Auto-generated types from API response
+// Generated at 2026-03-04T10:30:00.000Z
+
+export interface Users {
+  // ... properties
+}
+```
+
+## Real-World Examples
+
+### GitHub API
+
+Generate types for GitHub repositories:
+
+```bash
+bytekit --type https://api.github.com/repos/microsoft/typescript
+```
+
+### JSONPlaceholder
+
+Generate types for todos:
+
+```bash
+bytekit --type https://jsonplaceholder.typicode.com/todos/1
+```
+
+**Output:**
+```typescript
+export interface Todos {
+  userId: number;
+  id: number;
+  title: string;
+  completed: boolean;
+}
+```
+
+### Authenticated API
+
+Generate types from a protected endpoint:
+
+```bash
+bytekit --type \
+  --header="Authorization: Bearer your_token_here" \
+  https://api.example.com/me
+```
+
+### Creating a New Resource
+
+Generate types from a POST request:
+
+```bash
+bytekit --type \
+  --method=POST \
+  --body='{"username":"johndoe","email":"john@example.com"}' \
+  --header="Content-Type: application/json" \
+  https://api.example.com/register
+```
+
+## Error Handling
+
+The CLI provides detailed error messages:
+
+**HTTP Error:**
+```bash
+bytekit --type https://api.example.com/notfound
+# ❌ Error: HTTP 404: Not Found
+```
+
+**Network Error:**
+```bash
+bytekit --type https://invalid-domain.example
+# ❌ Error: fetch failed
+```
+
+**Invalid JSON:**
+```bash
+bytekit --type https://example.com/not-json
+# ❌ Error: Unexpected token < in JSON at position 0
+```
+
+## Tips and Best Practices
+
+<Tip>
+**Use sample data endpoints:** For best results, fetch endpoints that return representative sample data with all possible fields populated.
+</Tip>
+
+<Warning>
+Empty arrays (`[]`) are typed as `unknown[]` since ByteKit cannot infer the element type without sample data.
+</Warning>
+
+<Info>
+Generated types are a starting point. You may need to refine them for edge cases or add additional validation.
+</Info>
+
+## Next Steps
+
+<Card title="Swagger Integration" icon="file-code" href="/cli/swagger-integration">
+  Generate types from complete OpenAPI/Swagger specifications
+</Card>

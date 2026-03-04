@@ -1,0 +1,463 @@
+---
+title: 'Error Handling'
+description: 'Comprehensive error handling strategies with ByteKit ApiClient'
+---
+
+# Error Handling
+
+Learn how to handle errors effectively using ByteKit's built-in error handling, retry policies, circuit breakers, and localized error messages.
+
+## ApiError Class
+
+ByteKit provides a rich `ApiError` class with detailed error information:
+
+```typescript
+import { ApiError } from '@bytekit/core';
+
+try {
+  const data = await apiClient.get('/users/123');
+} catch (error) {
+  if (error instanceof ApiError) {
+    console.log('Status:', error.status);        // 404
+    console.log('Status Text:', error.statusText); // 'Not Found'
+    console.log('Message:', error.message);      // Localized message
+    console.log('Body:', error.body);           // Response body
+    console.log('Is Timeout:', error.isTimeout); // false
+    
+    // Get all details
+    console.log('Details:', error.details);
+  }
+}
+```
+
+## Handling Specific Error Types
+
+### HTTP Status Codes
+
+```typescript
+import { ApiError } from '@bytekit/core';
+
+const fetchUser = async (userId: string) => {
+  try {
+    return await apiClient.get(`/users/${userId}`);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      switch (error.status) {
+        case 400:
+          console.error('Invalid request:', error.message);
+          break;
+        case 401:
+          console.error('Unauthorized - please login');
+          // Redirect to login
+          window.location.href = '/login';
+          break;
+        case 403:
+          console.error('Access denied:', error.message);
+          break;
+        case 404:
+          console.error('User not found');
+          break;
+        case 429:
+          console.error('Rate limit exceeded');
+          // Wait and retry
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          return fetchUser(userId);
+        case 500:
+        case 502:
+        case 503:
+          console.error('Server error:', error.message);
+          break;
+        default:
+          console.error('Unexpected error:', error.message);
+      }
+    }
+    throw error;
+  }
+};
+```
+
+### Timeout Errors
+
+```typescript
+const fetchWithTimeoutHandling = async () => {
+  try {
+    return await apiClient.get('/slow-endpoint', {
+      timeoutMs: 5000,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.isTimeout) {
+      console.error('Request timed out after 5 seconds');
+      // Show user-friendly message
+      alert('The request is taking too long. Please try again.');
+    }
+    throw error;
+  }
+};
+```
+
+## Localized Error Messages
+
+ByteKit supports localized error messages in multiple languages:
+
+```typescript
+const apiClient = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  locale: 'en', // or 'es' for Spanish
+  errorMessages: {
+    en: {
+      400: 'Invalid request. Please check your input.',
+      401: 'You must be signed in to continue.',
+      403: 'You do not have permission for this action.',
+      404: 'The requested resource was not found.',
+      500: 'An internal server error occurred.',
+    },
+    es: {
+      400: 'Solicitud inválida. Verifica los datos.',
+      401: 'Debes iniciar sesión para continuar.',
+      403: 'No tienes permisos para esta acción.',
+      404: 'El recurso solicitado no fue encontrado.',
+      500: 'Ocurrió un error interno del servidor.',
+    },
+  },
+});
+
+// Override locale per request
+try {
+  await apiClient.get('/data', {
+    errorLocale: 'es',
+  });
+} catch (error) {
+  if (error instanceof ApiError) {
+    console.log(error.message); // Spanish error message
+  }
+}
+```
+
+## Retry Strategies
+
+### Built-in Retry Policy
+
+ApiClient includes automatic retry with exponential backoff:
+
+```typescript
+const apiClient = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  retryPolicy: {
+    maxAttempts: 3,
+    initialDelayMs: 1000,
+    maxDelayMs: 10000,
+    backoffMultiplier: 2,
+    shouldRetry: (error, attempt) => {
+      // Retry on network errors and 5xx errors
+      if (error instanceof ApiError) {
+        return error.status >= 500 || error.status === 408 || error.status === 429;
+      }
+      return true;
+    },
+  },
+});
+
+// This will automatically retry up to 3 times with backoff
+const data = await apiClient.get('/flaky-endpoint');
+```
+
+### Skip Retry for Specific Requests
+
+```typescript
+// Don't retry for this specific request
+const data = await apiClient.post('/create-user', {
+  body: userData,
+  skipRetry: true,
+});
+```
+
+### Custom Retry Logic
+
+```typescript
+import { retry } from '@bytekit/async';
+
+const fetchWithCustomRetry = async (userId: string) => {
+  return retry(
+    () => apiClient.get(`/users/${userId}`),
+    {
+      maxAttempts: 5,
+      baseDelay: 500,
+      maxDelay: 30000,
+      backoff: 'exponential',
+      shouldRetry: (error) => {
+        if (error instanceof ApiError) {
+          // Don't retry on client errors (4xx)
+          if (error.status >= 400 && error.status < 500) {
+            return false;
+          }
+          // Retry on server errors (5xx) and timeouts
+          return error.status >= 500 || error.isTimeout;
+        }
+        return true;
+      },
+    }
+  );
+};
+```
+
+## Circuit Breaker Pattern
+
+Prevent cascading failures with circuit breaker:
+
+```typescript
+const apiClient = new ApiClient({
+  baseUrl: 'https://api.example.com',
+  circuitBreaker: {
+    failureThreshold: 5,      // Open after 5 failures
+    successThreshold: 2,      // Close after 2 successes
+    timeoutMs: 60000,        // Try again after 60 seconds
+  },
+});
+
+try {
+  const data = await apiClient.get('/endpoint');
+} catch (error) {
+  if (error.message.includes('Circuit breaker is open')) {
+    console.error('Service is temporarily unavailable');
+    // Show maintenance page or fallback
+  }
+}
+```
+
+### Circuit Breaker with Fallback
+
+```typescript
+class ResilientApiClient {
+  private client: ApiClient;
+  private cache: Map<string, any> = new Map();
+
+  constructor(baseUrl: string) {
+    this.client = new ApiClient({
+      baseUrl,
+      circuitBreaker: {
+        failureThreshold: 3,
+        successThreshold: 2,
+        timeoutMs: 30000,
+      },
+    });
+  }
+
+  async fetchWithFallback<T>(path: string): Promise<T> {
+    const cacheKey = path;
+
+    try {
+      const data = await this.client.get<T>(path);
+      // Update cache on success
+      this.cache.set(cacheKey, data);
+      return data;
+    } catch (error) {
+      if (error.message.includes('Circuit breaker is open')) {
+        // Return cached data if available
+        if (this.cache.has(cacheKey)) {
+          console.warn('Using cached data due to circuit breaker');
+          return this.cache.get(cacheKey);
+        }
+      }
+      throw error;
+    }
+  }
+}
+```
+
+## Validation Errors
+
+### Response Validation
+
+```typescript
+import { ValidationSchema } from '@bytekit/core';
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+}
+
+const userSchema: ValidationSchema = {
+  id: { type: 'string', required: true },
+  email: { type: 'string', required: true },
+  name: { type: 'string', required: true },
+};
+
+try {
+  const user = await apiClient.get<User>('/users/123', {
+    validateResponse: userSchema,
+  });
+} catch (error) {
+  if (error.message.includes('validation failed')) {
+    console.error('Invalid response from server:', error.message);
+  }
+}
+```
+
+## Global Error Handler
+
+### Centralized Error Handling
+
+```typescript
+class ErrorHandler {
+  static handle(error: unknown, context?: string) {
+    if (error instanceof ApiError) {
+      this.handleApiError(error, context);
+    } else if (error instanceof Error) {
+      this.handleGenericError(error, context);
+    } else {
+      console.error('Unknown error:', error);
+    }
+  }
+
+  private static handleApiError(error: ApiError, context?: string) {
+    console.error(`API Error${context ? ` in ${context}` : ''}:`, error.details);
+
+    // Log to error tracking service
+    this.logToErrorService({
+      type: 'api_error',
+      status: error.status,
+      message: error.message,
+      context,
+      body: error.body,
+    });
+
+    // Show user notification
+    this.showUserNotification(error);
+  }
+
+  private static handleGenericError(error: Error, context?: string) {
+    console.error(`Error${context ? ` in ${context}` : ''}:`, error);
+    
+    this.logToErrorService({
+      type: 'generic_error',
+      message: error.message,
+      context,
+      stack: error.stack,
+    });
+  }
+
+  private static showUserNotification(error: ApiError) {
+    const messages: Record<number, string> = {
+      400: 'Please check your input and try again.',
+      401: 'Please sign in to continue.',
+      403: 'You do not have permission to perform this action.',
+      404: 'The requested resource was not found.',
+      429: 'Too many requests. Please wait a moment.',
+      500: 'A server error occurred. Please try again later.',
+    };
+
+    const message = messages[error.status] || 'An unexpected error occurred.';
+    
+    // Show toast notification or modal
+    this.showToast(message, 'error');
+  }
+
+  private static showToast(message: string, type: 'error' | 'warning' | 'info') {
+    // Implement your toast notification logic
+    console.log(`[${type.toUpperCase()}] ${message}`);
+  }
+
+  private static logToErrorService(data: Record<string, unknown>) {
+    // Send to Sentry, LogRocket, etc.
+    console.log('Error logged:', data);
+  }
+}
+
+// Usage
+try {
+  await apiClient.get('/users/123');
+} catch (error) {
+  ErrorHandler.handle(error, 'fetchUser');
+}
+```
+
+## Complete Example: Robust API Service
+
+```typescript
+import { ApiClient, ApiError } from '@bytekit/core';
+
+class RobustApiService {
+  private client: ApiClient;
+  private errorHandler: typeof ErrorHandler;
+
+  constructor(baseUrl: string) {
+    this.client = new ApiClient({
+      baseUrl,
+      timeoutMs: 15000,
+      locale: 'en',
+      retryPolicy: {
+        maxAttempts: 3,
+        initialDelayMs: 1000,
+        maxDelayMs: 10000,
+        shouldRetry: (error) => {
+          if (error instanceof ApiError) {
+            return error.status >= 500 || error.status === 408;
+          }
+          return true;
+        },
+      },
+      circuitBreaker: {
+        failureThreshold: 5,
+        successThreshold: 2,
+        timeoutMs: 60000,
+      },
+    });
+
+    this.errorHandler = ErrorHandler;
+  }
+
+  async get<T>(path: string, options?: any): Promise<T | null> {
+    try {
+      return await this.client.get<T>(path, options);
+    } catch (error) {
+      this.errorHandler.handle(error, `GET ${path}`);
+      return null;
+    }
+  }
+
+  async post<T>(path: string, data: unknown, options?: any): Promise<T | null> {
+    try {
+      return await this.client.post<T>(path, { body: data, ...options });
+    } catch (error) {
+      this.errorHandler.handle(error, `POST ${path}`);
+      return null;
+    }
+  }
+
+  async put<T>(path: string, data: unknown, options?: any): Promise<T | null> {
+    try {
+      return await this.client.put<T>(path, { body: data, ...options });
+    } catch (error) {
+      this.errorHandler.handle(error, `PUT ${path}`);
+      return null;
+    }
+  }
+
+  async delete(path: string, options?: any): Promise<boolean> {
+    try {
+      await this.client.delete(path, options);
+      return true;
+    } catch (error) {
+      this.errorHandler.handle(error, `DELETE ${path}`);
+      return false;
+    }
+  }
+}
+
+// Usage
+const api = new RobustApiService('https://api.example.com');
+
+const user = await api.get('/users/123');
+if (user) {
+  console.log('User:', user);
+} else {
+  console.log('Failed to fetch user');
+}
+```
+
+## See Also
+
+- [REST API Integration](/examples/rest-api-integration) - Basic API client setup
+- [Retry Policy Reference](/api-reference/retry-policy) - Retry configuration
+- [Circuit Breaker Reference](/api-reference/circuit-breaker) - Circuit breaker patterns

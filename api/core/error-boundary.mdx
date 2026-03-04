@@ -1,0 +1,37 @@
+---
+title: ErrorBoundary
+description: Error handling and recovery utilities
+---
+
+## Overview
+
+ErrorBoundary provides utilities for handling and recovering from errors gracefully.
+
+## Import
+
+```typescript
+import { ErrorBoundary } from "bytekit";
+// or
+import { ErrorBoundary } from "bytekit/error-boundary";
+```
+
+## Usage
+
+```typescript
+const boundary = new ErrorBoundary({
+  onError: (error) => {
+    console.error("Caught error:", error);
+  },
+  fallback: () => {
+    return { error: true, message: "Something went wrong" };
+  }
+});
+
+const result = await boundary.execute(async () => {
+  return await riskyOperation();
+});
+```
+
+## See Also
+
+- [Error Handling Example](/examples/error-handling)

@@ -1,0 +1,529 @@
+---
+title: ColorUtils
+description: Comprehensive color utilities for conversion, manipulation, and accessibility
+---
+
+## Overview
+
+The `ColorUtils` class provides a complete suite of color utilities including format conversion (hex, RGB, HSL), color manipulation (lighten, darken, mix), accessibility checks (WCAG contrast), and palette generation. All methods are static and work isomorphically in Node.js and browsers.
+
+## Import
+
+```typescript
+import { ColorUtils } from 'bytekit';
+```
+
+## Usage
+
+### Color Conversion
+
+```typescript
+// Hex to RGB
+const rgb = ColorUtils.hexToRgb('#ff5733');
+console.log(rgb); // { r: 255, g: 87, b: 51 }
+
+// RGB to Hex
+const hex = ColorUtils.rgbToHex(255, 87, 51);
+console.log(hex); // '#ff5733'
+
+// Hex to HSL
+const hsl = ColorUtils.hexToHsl('#ff5733');
+console.log(hsl); // { h: 11, s: 100, l: 60 }
+
+// HSL to Hex
+const hexFromHsl = ColorUtils.hslToHex(11, 100, 60);
+console.log(hexFromHsl); // '#ff5733'
+```
+
+### Color Manipulation
+
+```typescript
+const baseColor = '#3498db';
+
+// Lighten
+const lighter = ColorUtils.lighten(baseColor, 20);
+console.log(lighter); // Lighter shade
+
+// Darken
+const darker = ColorUtils.darken(baseColor, 20);
+console.log(darker); // Darker shade
+
+// Saturate/Desaturate
+const saturated = ColorUtils.saturate(baseColor, 30);
+const desaturated = ColorUtils.desaturate(baseColor, 30);
+const grayscale = ColorUtils.grayscale(baseColor);
+
+// Invert
+const inverted = ColorUtils.invert(baseColor);
+
+// Complement (opposite on color wheel)
+const complement = ColorUtils.complement(baseColor);
+
+// Mix two colors
+const mixed = ColorUtils.mix('#ff0000', '#0000ff', 50); // Purple
+```
+
+### Accessibility
+
+```typescript
+const bgColor = '#3498db';
+const textColor = '#ffffff';
+
+// Calculate contrast ratio
+const contrast = ColorUtils.contrast(bgColor, textColor);
+console.log(`Contrast ratio: ${contrast.toFixed(2)}:1`);
+
+// Check WCAG compliance
+const meetsAA = ColorUtils.meetsContrastAA(bgColor, textColor);
+const meetsAAA = ColorUtils.meetsContrastAAA(bgColor, textColor);
+
+console.log(`Meets WCAG AA: ${meetsAA}`);
+console.log(`Meets WCAG AAA: ${meetsAAA}`);
+
+// Get best text color for background
+const textColorForBg = ColorUtils.textColor('#3498db');
+console.log(textColorForBg); // '#ffffff' or '#000000'
+
+// Check if color is light or dark
+const isLight = ColorUtils.isLight('#3498db');
+const isDark = ColorUtils.isDark('#3498db');
+```
+
+### Palette Generation
+
+```typescript
+const baseColor = '#3498db';
+
+// Generate harmonious palette
+const palette = ColorUtils.palette(baseColor, 5);
+console.log(palette); // Array of 5 colors
+
+// Complementary colors
+const complementary = ColorUtils.complementaryPalette(baseColor);
+console.log(complementary); // [baseColor, complement]
+
+// Triadic colors
+const triadic = ColorUtils.triadicPalette(baseColor);
+console.log(triadic); // [baseColor, +120°, +240°]
+
+// Analogous colors
+const analogous = ColorUtils.analogousPalette(baseColor, 30);
+console.log(analogous); // [baseColor-30°, baseColor, baseColor+30°]
+
+// Gradient
+const gradient = ColorUtils.gradient('#ff0000', '#0000ff', 5);
+console.log(gradient); // 5 colors from red to blue
+
+// Shades and tints
+const shades = ColorUtils.shades(baseColor, 5); // Darker variations
+const tints = ColorUtils.tints(baseColor, 5); // Lighter variations
+```
+
+### Random Colors
+
+```typescript
+// Random color
+const random = ColorUtils.random();
+console.log(random); // e.g., '#a3f2b1'
+
+// Random with specific lightness
+const lightColor = ColorUtils.randomWithLightness(70); // Light color
+const darkColor = ColorUtils.randomWithLightness(30); // Dark color
+```
+
+### Parsing
+
+```typescript
+// Parse various formats to hex
+ColorUtils.parse('rgb(255, 87, 51)'); // '#ff5733'
+ColorUtils.parse('hsl(11, 100%, 60%)'); // '#ff5733'
+ColorUtils.parse('#ff5733'); // '#ff5733'
+ColorUtils.parse('red'); // '#ff0000'
+
+// Convert to CSS formats
+ColorUtils.toCssRgb('#ff5733'); // 'rgb(255, 87, 51)'
+ColorUtils.toCssHsl('#ff5733'); // 'hsl(11, 100%, 60%)'
+
+// Validate hex
+ColorUtils.isValidHex('#ff5733'); // true
+ColorUtils.isValidHex('ff5733'); // false
+```
+
+## API Reference
+
+### Conversion Methods
+
+#### hexToRgb
+
+<ParamField path="hex" type="string" required>
+  Hex color string (e.g., '#ff5733' or '#f53')
+</ParamField>
+
+<ResponseField name="return" type="RGB | null">
+  RGB object or null if invalid
+  
+  ```typescript
+  interface RGB {
+    r: number; // 0-255
+    g: number; // 0-255
+    b: number; // 0-255
+  }
+  ```
+</ResponseField>
+
+#### hexToRgba
+
+<ParamField path="hex" type="string" required>
+  Hex color with optional alpha (e.g., '#ff573380')
+</ParamField>
+
+<ResponseField name="return" type="RGBA | null">
+  RGBA object or null if invalid
+  
+  ```typescript
+  interface RGBA extends RGB {
+    a: number; // 0-1
+  }
+  ```
+</ResponseField>
+
+#### rgbToHex
+
+<ParamField path="r" type="number | RGB" required>
+  Red value (0-255) or RGB object
+</ParamField>
+
+<ParamField path="g" type="number" optional>
+  Green value (0-255)
+</ParamField>
+
+<ParamField path="b" type="number" optional>
+  Blue value (0-255)
+</ParamField>
+
+<ResponseField name="return" type="string">
+  Hex color string
+</ResponseField>
+
+```typescript
+ColorUtils.rgbToHex(255, 87, 51); // '#ff5733'
+ColorUtils.rgbToHex({ r: 255, g: 87, b: 51 }); // '#ff5733'
+```
+
+#### rgbToHsl / hslToRgb
+
+Similar overloads for RGB ↔ HSL conversion.
+
+### Manipulation Methods
+
+#### lighten / darken
+
+<ParamField path="color" type="string" required>
+  Hex color string
+</ParamField>
+
+<ParamField path="percent" type="number" required>
+  Percentage to lighten/darken (0-100)
+</ParamField>
+
+<ResponseField name="return" type="string">
+  Modified hex color
+</ResponseField>
+
+```typescript
+ColorUtils.lighten('#3498db', 20); // Lighter
+ColorUtils.darken('#3498db', 20); // Darker
+```
+
+#### saturate / desaturate
+
+<ParamField path="color" type="string" required>
+  Hex color string
+</ParamField>
+
+<ParamField path="percent" type="number" required>
+  Percentage to adjust saturation
+</ParamField>
+
+<ResponseField name="return" type="string">
+  Modified hex color
+</ResponseField>
+
+#### mix
+
+<ParamField path="color1" type="string" required>
+  First hex color
+</ParamField>
+
+<ParamField path="color2" type="string" required>
+  Second hex color
+</ParamField>
+
+<ParamField path="weight" type="number" default="50">
+  Mix weight (0-100), where 0 = all color1, 100 = all color2
+</ParamField>
+
+<ResponseField name="return" type="string">
+  Mixed hex color
+</ResponseField>
+
+```typescript
+ColorUtils.mix('#ff0000', '#0000ff', 50); // Purple
+ColorUtils.mix('#ff0000', '#0000ff', 75); // More blue
+```
+
+#### complement / invert
+
+<ParamField path="color" type="string" required>
+  Hex color string
+</ParamField>
+
+<ResponseField name="return" type="string">
+  Complementary/inverted hex color
+</ResponseField>
+
+### Accessibility Methods
+
+#### contrast
+
+Calculate WCAG contrast ratio between two colors.
+
+<ParamField path="color1" type="string" required>
+  First hex color
+</ParamField>
+
+<ParamField path="color2" type="string" required>
+  Second hex color
+</ParamField>
+
+<ResponseField name="return" type="number">
+  Contrast ratio (1-21)
+</ResponseField>
+
+```typescript
+ColorUtils.contrast('#000000', '#ffffff'); // 21 (maximum)
+ColorUtils.contrast('#777777', '#ffffff'); // ~4.48
+```
+
+#### meetsContrastAA / meetsContrastAAA
+
+<ParamField path="color1" type="string" required>
+  First color (typically background)
+</ParamField>
+
+<ParamField path="color2" type="string" required>
+  Second color (typically text)
+</ParamField>
+
+<ParamField path="largeText" type="boolean" default="false">
+  Whether text is large (18pt+ or 14pt+ bold)
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  True if contrast meets WCAG standard
+</ResponseField>
+
+- **AA**: 4.5:1 normal text, 3:1 large text
+- **AAA**: 7:1 normal text, 4.5:1 large text
+
+#### textColor
+
+Get optimal text color (black or white) for a background.
+
+<ParamField path="backgroundColor" type="string" required>
+  Background hex color
+</ParamField>
+
+<ResponseField name="return" type="string">
+  '#000000' or '#ffffff'
+</ResponseField>
+
+```typescript
+ColorUtils.textColor('#3498db'); // '#ffffff'
+ColorUtils.textColor('#ecf0f1'); // '#000000'
+```
+
+#### luminance
+
+Calculate relative luminance (WCAG definition).
+
+<ParamField path="color" type="string" required>
+  Hex color string
+</ParamField>
+
+<ResponseField name="return" type="number">
+  Luminance value (0-1)
+</ResponseField>
+
+#### isLight / isDark
+
+<ParamField path="color" type="string" required>
+  Hex color string
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  True if color is light/dark
+</ResponseField>
+
+### Generation Methods
+
+#### palette
+
+<ParamField path="baseColor" type="string" required>
+  Base hex color
+</ParamField>
+
+<ParamField path="count" type="number" default="5">
+  Number of colors to generate
+</ParamField>
+
+<ResponseField name="return" type="string[]">
+  Array of harmonious hex colors
+</ResponseField>
+
+#### gradient
+
+<ParamField path="startColor" type="string" required>
+  Start hex color
+</ParamField>
+
+<ParamField path="endColor" type="string" required>
+  End hex color
+</ParamField>
+
+<ParamField path="steps" type="number" required>
+  Number of gradient steps
+</ParamField>
+
+<ResponseField name="return" type="string[]">
+  Array of gradient colors
+</ResponseField>
+
+```typescript
+const gradient = ColorUtils.gradient('#ff0000', '#0000ff', 5);
+// ['#ff0000', '#bf003f', '#7f007f', '#3f00bf', '#0000ff']
+```
+
+#### shades / tints
+
+<ParamField path="baseColor" type="string" required>
+  Base hex color
+</ParamField>
+
+<ParamField path="count" type="number" default="5">
+  Number of variations
+</ParamField>
+
+<ResponseField name="return" type="string[]">
+  Array of darker (shades) or lighter (tints) colors
+</ResponseField>
+
+## Types
+
+```typescript
+interface RGB {
+  r: number; // 0-255
+  g: number;
+  b: number;
+}
+
+interface RGBA extends RGB {
+  a: number; // 0-1
+}
+
+interface HSL {
+  h: number; // 0-360
+  s: number; // 0-100
+  l: number; // 0-100
+}
+
+interface HSLA extends HSL {
+  a: number; // 0-1
+}
+```
+
+## Use Cases
+
+### Theme Generation
+
+```typescript
+function generateTheme(primaryColor: string) {
+  return {
+    primary: primaryColor,
+    primaryLight: ColorUtils.lighten(primaryColor, 10),
+    primaryDark: ColorUtils.darken(primaryColor, 10),
+    secondary: ColorUtils.complement(primaryColor),
+    text: ColorUtils.textColor(primaryColor),
+    shades: ColorUtils.shades(primaryColor, 5),
+    tints: ColorUtils.tints(primaryColor, 5)
+  };
+}
+
+const theme = generateTheme('#3498db');
+```
+
+### Accessible Color Picker
+
+```typescript
+function ensureAccessibleColor(
+  color: string,
+  background: string
+): string {
+  if (ColorUtils.meetsContrastAA(color, background)) {
+    return color;
+  }
+  
+  // Try darkening
+  let adjusted = ColorUtils.darken(color, 10);
+  if (ColorUtils.meetsContrastAA(adjusted, background)) {
+    return adjusted;
+  }
+  
+  // Fallback to optimal text color
+  return ColorUtils.textColor(background);
+}
+```
+
+### Color Palette Builder
+
+```typescript
+class PaletteBuilder {
+  constructor(private baseColor: string) {}
+  
+  complementary() {
+    return ColorUtils.complementaryPalette(this.baseColor);
+  }
+  
+  triadic() {
+    return ColorUtils.triadicPalette(this.baseColor);
+  }
+  
+  analogous() {
+    return ColorUtils.analogousPalette(this.baseColor);
+  }
+  
+  monochromatic() {
+    const base = this.baseColor;
+    return [
+      ColorUtils.darken(base, 20),
+      ColorUtils.darken(base, 10),
+      base,
+      ColorUtils.lighten(base, 10),
+      ColorUtils.lighten(base, 20)
+    ];
+  }
+}
+```
+
+## Best Practices
+
+1. **Always validate colors** before manipulation
+2. **Check accessibility** for text/background combinations
+3. **Use semantic naming** for generated colors
+4. **Cache conversions** for repeated operations
+5. **Test on actual devices** for color perception
+
+## Related
+
+- [Theme System](/guides/theming) - Using ColorUtils for theming
+- [Design Tokens](/guides/design-tokens) - Color token generation

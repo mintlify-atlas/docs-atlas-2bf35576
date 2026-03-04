@@ -1,0 +1,762 @@
+---
+title: 'NumberUtils'
+description: 'Number utilities for formatting, parsing, and mathematical operations'
+---
+
+## Overview
+
+The `NumberUtils` class provides comprehensive number utilities including locale-aware formatting, currency and percentage formatting, mathematical operations, random number generation, and statistical functions. All utilities are isomorphic and work in both Node.js and browser environments.
+
+**Source:** `workspace/source/src/utils/helpers/NumberUtils.ts:46`
+
+## Interfaces
+
+### FormatNumberOptions
+
+Options for number formatting.
+
+```typescript
+interface FormatNumberOptions {
+  locale?: string;                // Locale for formatting (e.g., 'en-US', 'es-AR')
+  minimumFractionDigits?: number; // Minimum fraction digits
+  maximumFractionDigits?: number; // Maximum fraction digits
+  useGrouping?: boolean;          // Use grouping separators (thousands)
+}
+```
+
+### FormatCurrencyOptions
+
+Options for currency formatting.
+
+```typescript
+interface FormatCurrencyOptions extends FormatNumberOptions {
+  currency?: string;  // Currency code (e.g., 'USD', 'EUR', 'ARS')
+  currencyDisplay?: "symbol" | "narrowSymbol" | "code" | "name";
+}
+```
+
+### FormatPercentOptions
+
+Options for percentage formatting.
+
+```typescript
+interface FormatPercentOptions {
+  locale?: string;      // Locale for formatting
+  decimals?: number;    // Decimal places
+  isPercentage?: boolean; // Whether value is already a percentage
+}
+```
+
+## Methods
+
+### format
+
+Format a number according to locale.
+
+```typescript
+static format(
+  value: number,
+  locale?: string,
+  options?: FormatNumberOptions
+): string
+```
+
+**Parameters:**
+- `value: number` - Number to format
+- `locale?: string` - Locale code
+- `options?: FormatNumberOptions` - Formatting options
+
+**Returns:** `string` - Formatted number string
+
+**Example:**
+```typescript
+import { NumberUtils } from 'bytekit';
+
+NumberUtils.format(1234567.89, 'es-AR'); // '1.234.567,89'
+NumberUtils.format(1234567.89, 'en-US'); // '1,234,567.89'
+NumberUtils.format(3.14159, 'en-US', { maximumFractionDigits: 2 }); // '3.14'
+```
+
+---
+
+### currency
+
+Format a number as currency.
+
+```typescript
+static currency(
+  value: number,
+  currency: string = "USD",
+  locale?: string,
+  options?: FormatCurrencyOptions
+): string
+```
+
+**Parameters:**
+- `value: number` - Amount to format
+- `currency: string` - Currency code (default: 'USD')
+- `locale?: string` - Locale code
+- `options?: FormatCurrencyOptions` - Formatting options
+
+**Returns:** `string` - Formatted currency string
+
+**Example:**
+```typescript
+NumberUtils.currency(99.99, 'USD'); // '$99.99'
+NumberUtils.currency(1500, 'EUR', 'de-DE'); // '1.500,00 €'
+NumberUtils.currency(2500.5, 'ARS', 'es-AR'); // '$ 2.500,50'
+```
+
+---
+
+### percentage
+
+Format a number as percentage.
+
+```typescript
+static percentage(value: number, options?: FormatPercentOptions): string
+```
+
+**Parameters:**
+- `value: number` - Value to format (0.5 = 50% by default)
+- `options?: FormatPercentOptions` - Formatting options
+
+**Returns:** `string` - Formatted percentage string
+
+**Example:**
+```typescript
+NumberUtils.percentage(0.456); // '45.6%'
+NumberUtils.percentage(75, { isPercentage: true }); // '75%'
+NumberUtils.percentage(0.3333, { decimals: 2 }); // '33.33%'
+```
+
+---
+
+### ordinal
+
+Convert number to ordinal string.
+
+```typescript
+static ordinal(value: number, locale: string = "en"): string
+```
+
+**Parameters:**
+- `value: number` - Number to convert
+- `locale: string` - Locale code (default: 'en')
+
+**Returns:** `string` - Ordinal string
+
+**Example:**
+```typescript
+NumberUtils.ordinal(1); // '1st'
+NumberUtils.ordinal(2); // '2nd'
+NumberUtils.ordinal(3); // '3rd'
+NumberUtils.ordinal(4); // '4th'
+NumberUtils.ordinal(11); // '11th'
+NumberUtils.ordinal(21); // '21st'
+NumberUtils.ordinal(1, 'es'); // '1°'
+```
+
+---
+
+### clamp
+
+Clamp a number between min and max values.
+
+```typescript
+static clamp(value: number, min: number, max: number): number
+```
+
+**Parameters:**
+- `value: number` - Number to clamp
+- `min: number` - Minimum value
+- `max: number` - Maximum value
+
+**Returns:** `number` - Clamped value
+
+**Example:**
+```typescript
+NumberUtils.clamp(150, 0, 100); // 100
+NumberUtils.clamp(-50, 0, 100); // 0
+NumberUtils.clamp(50, 0, 100); // 50
+```
+
+---
+
+### round
+
+Round a number to specified decimal places.
+
+```typescript
+static round(value: number, decimals: number = 0): number
+```
+
+**Parameters:**
+- `value: number` - Number to round
+- `decimals: number` - Decimal places (default: 0)
+
+**Returns:** `number` - Rounded number
+
+**Example:**
+```typescript
+NumberUtils.round(3.14159, 2); // 3.14
+NumberUtils.round(3.14159, 4); // 3.1416
+NumberUtils.round(1234.5, -2); // 1200 (round to hundreds)
+```
+
+---
+
+### floor
+
+Floor a number to specified decimal places.
+
+```typescript
+static floor(value: number, decimals: number = 0): number
+```
+
+**Parameters:**
+- `value: number` - Number to floor
+- `decimals: number` - Decimal places (default: 0)
+
+**Returns:** `number` - Floored number
+
+**Example:**
+```typescript
+NumberUtils.floor(3.999, 2); // 3.99
+NumberUtils.floor(3.999); // 3
+```
+
+---
+
+### ceil
+
+Ceil a number to specified decimal places.
+
+```typescript
+static ceil(value: number, decimals: number = 0): number
+```
+
+**Parameters:**
+- `value: number` - Number to ceil
+- `decimals: number` - Decimal places (default: 0)
+
+**Returns:** `number` - Ceiled number
+
+**Example:**
+```typescript
+NumberUtils.ceil(3.001, 2); // 3.01
+NumberUtils.ceil(3.001); // 4
+```
+
+---
+
+### range
+
+Generate an array of numbers from start to end (inclusive).
+
+```typescript
+static range(start: number, end: number, step: number = 1): number[]
+```
+
+**Parameters:**
+- `start: number` - Starting number
+- `end: number` - Ending number (inclusive)
+- `step: number` - Step increment (default: 1)
+
+**Returns:** `number[]` - Array of numbers
+
+**Throws:** Error if step is zero
+
+**Example:**
+```typescript
+NumberUtils.range(1, 5); // [1, 2, 3, 4, 5]
+NumberUtils.range(0, 10, 2); // [0, 2, 4, 6, 8, 10]
+NumberUtils.range(5, 1); // [5, 4, 3, 2, 1]
+```
+
+---
+
+### random
+
+Generate a random integer between min and max (inclusive).
+
+```typescript
+static random(min: number, max: number): number
+```
+
+**Parameters:**
+- `min: number` - Minimum value
+- `max: number` - Maximum value
+
+**Returns:** `number` - Random integer
+
+**Example:**
+```typescript
+NumberUtils.random(1, 100); // Random number between 1 and 100
+NumberUtils.random(1, 6); // Dice roll
+```
+
+---
+
+### randomFloat
+
+Generate a random float between min and max.
+
+```typescript
+static randomFloat(min: number, max: number, decimals: number = 2): number
+```
+
+**Parameters:**
+- `min: number` - Minimum value
+- `max: number` - Maximum value
+- `decimals: number` - Decimal places (default: 2)
+
+**Returns:** `number` - Random float
+
+**Example:**
+```typescript
+NumberUtils.randomFloat(0, 1); // 0.47
+NumberUtils.randomFloat(0, 100, 3); // 47.893
+```
+
+---
+
+### isEven
+
+Check if a number is even.
+
+```typescript
+static isEven(value: number): boolean
+```
+
+**Parameters:**
+- `value: number` - Number to check
+
+**Returns:** `boolean` - True if even
+
+**Example:**
+```typescript
+NumberUtils.isEven(4); // true
+NumberUtils.isEven(5); // false
+```
+
+---
+
+### isOdd
+
+Check if a number is odd.
+
+```typescript
+static isOdd(value: number): boolean
+```
+
+**Parameters:**
+- `value: number` - Number to check
+
+**Returns:** `boolean` - True if odd
+
+**Example:**
+```typescript
+NumberUtils.isOdd(5); // true
+NumberUtils.isOdd(4); // false
+```
+
+---
+
+### isInteger
+
+Check if a number is an integer.
+
+```typescript
+static isInteger(value: number): boolean
+```
+
+**Parameters:**
+- `value: number` - Number to check
+
+**Returns:** `boolean` - True if integer
+
+**Example:**
+```typescript
+NumberUtils.isInteger(5); // true
+NumberUtils.isInteger(5.5); // false
+```
+
+---
+
+### isFloat
+
+Check if a number is a float (has decimal places).
+
+```typescript
+static isFloat(value: number): boolean
+```
+
+**Parameters:**
+- `value: number` - Number to check
+
+**Returns:** `boolean` - True if float
+
+**Example:**
+```typescript
+NumberUtils.isFloat(5.5); // true
+NumberUtils.isFloat(5); // false
+```
+
+---
+
+### isPositive
+
+Check if a number is positive.
+
+```typescript
+static isPositive(value: number): boolean
+```
+
+**Parameters:**
+- `value: number` - Number to check
+
+**Returns:** `boolean` - True if positive
+
+**Example:**
+```typescript
+NumberUtils.isPositive(5); // true
+NumberUtils.isPositive(-5); // false
+```
+
+---
+
+### isNegative
+
+Check if a number is negative.
+
+```typescript
+static isNegative(value: number): boolean
+```
+
+**Parameters:**
+- `value: number` - Number to check
+
+**Returns:** `boolean` - True if negative
+
+**Example:**
+```typescript
+NumberUtils.isNegative(-5); // true
+NumberUtils.isNegative(5); // false
+```
+
+---
+
+### isBetween
+
+Check if a number is between min and max (inclusive).
+
+```typescript
+static isBetween(value: number, min: number, max: number): boolean
+```
+
+**Parameters:**
+- `value: number` - Number to check
+- `min: number` - Minimum value
+- `max: number` - Maximum value
+
+**Returns:** `boolean` - True if value is between min and max
+
+**Example:**
+```typescript
+NumberUtils.isBetween(5, 1, 10); // true
+NumberUtils.isBetween(0, 1, 10); // false
+NumberUtils.isBetween(1, 1, 10); // true (inclusive)
+```
+
+---
+
+### toWords
+
+Convert number to words.
+
+```typescript
+static toWords(value: number, locale: string = "en"): string
+```
+
+**Parameters:**
+- `value: number` - Number to convert
+- `locale: string` - Locale ('en' or 'es', default: 'en')
+
+**Returns:** `string` - Number in words
+
+**Example:**
+```typescript
+NumberUtils.toWords(123); // 'one hundred twenty-three'
+NumberUtils.toWords(1000); // 'one thousand'
+NumberUtils.toWords(123, 'es'); // 'ciento veintitrés'
+```
+
+---
+
+### formatBytes
+
+Format bytes to human readable string.
+
+```typescript
+static formatBytes(bytes: number, decimals: number = 2): string
+```
+
+**Parameters:**
+- `bytes: number` - Number of bytes
+- `decimals: number` - Decimal places (default: 2)
+
+**Returns:** `string` - Formatted string
+
+**Example:**
+```typescript
+NumberUtils.formatBytes(1536); // '1.5 KB'
+NumberUtils.formatBytes(1048576); // '1 MB'
+NumberUtils.formatBytes(1073741824); // '1 GB'
+```
+
+---
+
+### parse
+
+Parse a formatted number string back to number.
+
+```typescript
+static parse(value: string, locale: string = "en"): number
+```
+
+**Parameters:**
+- `value: string` - Formatted number string
+- `locale: string` - Locale code (default: 'en')
+
+**Returns:** `number` - Parsed number
+
+**Example:**
+```typescript
+NumberUtils.parse('1,234.56'); // 1234.56
+NumberUtils.parse('1.234,56', 'es'); // 1234.56
+NumberUtils.parse('$1,234.56'); // 1234.56 (removes currency symbols)
+```
+
+---
+
+### pad
+
+Add padding zeros to a number.
+
+```typescript
+static pad(value: number, length: number): string
+```
+
+**Parameters:**
+- `value: number` - Number to pad
+- `length: number` - Desired string length
+
+**Returns:** `string` - Padded string
+
+**Example:**
+```typescript
+NumberUtils.pad(5, 3); // '005'
+NumberUtils.pad(42, 5); // '00042'
+```
+
+---
+
+### sum
+
+Calculate the sum of numbers.
+
+```typescript
+static sum(values: number[]): number
+```
+
+**Parameters:**
+- `values: number[]` - Array of numbers
+
+**Returns:** `number` - Sum of all numbers
+
+**Example:**
+```typescript
+NumberUtils.sum([1, 2, 3, 4, 5]); // 15
+```
+
+---
+
+### average
+
+Calculate the average (mean) of numbers.
+
+```typescript
+static average(values: number[]): number
+```
+
+**Parameters:**
+- `values: number[]` - Array of numbers
+
+**Returns:** `number` - Average value (0 if empty)
+
+**Example:**
+```typescript
+NumberUtils.average([1, 2, 3, 4, 5]); // 3
+```
+
+---
+
+### mean
+
+Alias for `average`.
+
+```typescript
+static mean(values: number[]): number
+```
+
+---
+
+### median
+
+Calculate the median of numbers.
+
+```typescript
+static median(values: number[]): number
+```
+
+**Parameters:**
+- `values: number[]` - Array of numbers
+
+**Returns:** `number` - Median value (0 if empty)
+
+**Example:**
+```typescript
+NumberUtils.median([1, 2, 3, 4, 5]); // 3
+NumberUtils.median([1, 2, 3, 4]); // 2.5
+```
+
+---
+
+### mode
+
+Calculate the mode (most frequent value) of numbers.
+
+```typescript
+static mode(values: number[]): number | null
+```
+
+**Parameters:**
+- `values: number[]` - Array of numbers
+
+**Returns:** `number | null` - Most frequent value or null if empty
+
+**Example:**
+```typescript
+NumberUtils.mode([1, 2, 2, 3, 3, 3]); // 3
+```
+
+---
+
+### min
+
+Calculate the minimum value.
+
+```typescript
+static min(values: number[]): number | null
+```
+
+**Parameters:**
+- `values: number[]` - Array of numbers
+
+**Returns:** `number | null` - Minimum value or null if empty
+
+**Example:**
+```typescript
+NumberUtils.min([3, 1, 4, 1, 5]); // 1
+```
+
+---
+
+### max
+
+Calculate the maximum value.
+
+```typescript
+static max(values: number[]): number | null
+```
+
+**Parameters:**
+- `values: number[]` - Array of numbers
+
+**Returns:** `number | null` - Maximum value or null if empty
+
+**Example:**
+```typescript
+NumberUtils.max([3, 1, 4, 1, 5]); // 5
+```
+
+---
+
+### standardDeviation
+
+Calculate the standard deviation.
+
+```typescript
+static standardDeviation(
+  values: number[],
+  population: boolean = true
+): number
+```
+
+**Parameters:**
+- `values: number[]` - Array of numbers
+- `population: boolean` - Use population formula (default: true)
+
+**Returns:** `number` - Standard deviation (0 if empty)
+
+**Example:**
+```typescript
+const data = [2, 4, 4, 4, 5, 5, 7, 9];
+NumberUtils.standardDeviation(data); // 2
+```
+
+---
+
+### variance
+
+Calculate variance.
+
+```typescript
+static variance(values: number[], population: boolean = true): number
+```
+
+**Parameters:**
+- `values: number[]` - Array of numbers
+- `population: boolean` - Use population formula (default: true)
+
+**Returns:** `number` - Variance (0 if empty)
+
+**Example:**
+```typescript
+const data = [2, 4, 4, 4, 5, 5, 7, 9];
+NumberUtils.variance(data); // 4
+```
+
+---
+
+### percentile
+
+Calculate percentile.
+
+```typescript
+static percentile(values: number[], p: number): number
+```
+
+**Parameters:**
+- `values: number[]` - Array of numbers
+- `p: number` - Percentile (0-100)
+
+**Returns:** `number` - Percentile value (0 if empty)
+
+**Example:**
+```typescript
+const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+NumberUtils.percentile(data, 90); // 9.1
+NumberUtils.percentile(data, 50); // 5.5 (median)
+```

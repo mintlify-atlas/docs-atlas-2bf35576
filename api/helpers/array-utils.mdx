@@ -1,0 +1,719 @@
+---
+title: 'ArrayUtils'
+description: 'Array manipulation utilities for everyday development tasks'
+---
+
+## Overview
+
+The `ArrayUtils` class provides a comprehensive set of static methods for array manipulation, including chunking, flattening, deduplication, shuffling, set operations, and statistical functions.
+
+**Source:** `workspace/source/src/utils/helpers/ArrayUtils.ts:5`
+
+## Methods
+
+### chunk
+
+Split array into chunks of specified size.
+
+```typescript
+static chunk<T>(arr: T[], size: number): T[][]
+```
+
+**Parameters:**
+- `arr: T[]` - The array to split
+- `size: number` - Size of each chunk (must be greater than 0)
+
+**Returns:** `T[][]` - Array of chunks
+
+**Throws:** Error if chunk size is less than or equal to 0
+
+**Example:**
+```typescript
+import { ArrayUtils } from 'bytekit';
+
+const numbers = [1, 2, 3, 4, 5, 6, 7];
+const chunks = ArrayUtils.chunk(numbers, 3);
+console.log(chunks); // [[1, 2, 3], [4, 5, 6], [7]]
+```
+
+---
+
+### flatten
+
+Flatten nested arrays to a specified depth.
+
+```typescript
+static flatten<T>(arr: Array<T | T[]>, depth = 1): T[]
+```
+
+**Parameters:**
+- `arr: Array<T | T[]>` - The array to flatten
+- `depth: number` - Depth level to flatten (default: 1)
+
+**Returns:** `T[]` - Flattened array
+
+**Example:**
+```typescript
+const nested = [1, [2, [3, [4, 5]]]];
+ArrayUtils.flatten(nested, 1); // [1, 2, [3, [4, 5]]]
+ArrayUtils.flatten(nested, 2); // [1, 2, 3, [4, 5]]
+ArrayUtils.flatten(nested, 3); // [1, 2, 3, 4, 5]
+```
+
+---
+
+### unique
+
+Get unique values from array, optionally using a key function.
+
+```typescript
+static unique<T>(arr: T[], by?: (item: T) => unknown): T[]
+```
+
+**Parameters:**
+- `arr: T[]` - The array to deduplicate
+- `by?: (item: T) => unknown` - Optional function to extract comparison key
+
+**Returns:** `T[]` - Array with unique values
+
+**Example:**
+```typescript
+const numbers = [1, 2, 2, 3, 3, 3];
+ArrayUtils.unique(numbers); // [1, 2, 3]
+
+const users = [
+  { id: 1, name: 'Alice' },
+  { id: 2, name: 'Bob' },
+  { id: 1, name: 'Alice' }
+];
+ArrayUtils.unique(users, u => u.id); // [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }]
+```
+
+---
+
+### deduplicate
+
+Remove duplicates and return unique array (alias for `unique`).
+
+```typescript
+static deduplicate<T>(arr: T[]): T[]
+```
+
+**Parameters:**
+- `arr: T[]` - The array to deduplicate
+
+**Returns:** `T[]` - Array with unique values
+
+---
+
+### compact
+
+Remove falsy values (null, undefined, false, 0, empty string) from array.
+
+```typescript
+static compact<T>(arr: Array<T | null | undefined | false | 0 | "">): T[]
+```
+
+**Parameters:**
+- `arr: Array<T | null | undefined | false | 0 | "">` - The array to compact
+
+**Returns:** `T[]` - Array with truthy values only
+
+**Example:**
+```typescript
+const mixed = [1, null, 2, undefined, 3, false, 4, 0, 5, ''];
+ArrayUtils.compact(mixed); // [1, 2, 3, 4, 5]
+```
+
+---
+
+### flat
+
+Flatten array one level deep.
+
+```typescript
+static flat<T>(arr: Array<T | T[]>): T[]
+```
+
+**Parameters:**
+- `arr: Array<T | T[]>` - The array to flatten
+
+**Returns:** `T[]` - Array flattened one level
+
+**Example:**
+```typescript
+const nested = [1, [2, 3], [4, [5]]];
+ArrayUtils.flat(nested); // [1, 2, 3, 4, [5]]
+```
+
+---
+
+### first
+
+Get the first element of an array.
+
+```typescript
+static first<T>(arr: T[]): T | undefined
+```
+
+**Parameters:**
+- `arr: T[]` - The array
+
+**Returns:** `T | undefined` - First element or undefined if array is empty
+
+**Example:**
+```typescript
+ArrayUtils.first([1, 2, 3]); // 1
+ArrayUtils.first([]); // undefined
+```
+
+---
+
+### last
+
+Get the last element of an array.
+
+```typescript
+static last<T>(arr: T[]): T | undefined
+```
+
+**Parameters:**
+- `arr: T[]` - The array
+
+**Returns:** `T | undefined` - Last element or undefined if array is empty
+
+**Example:**
+```typescript
+ArrayUtils.last([1, 2, 3]); // 3
+ArrayUtils.last([]); // undefined
+```
+
+---
+
+### at
+
+Get element at index (supports negative indices).
+
+```typescript
+static at<T>(arr: T[], index: number): T | undefined
+```
+
+**Parameters:**
+- `arr: T[]` - The array
+- `index: number` - The index (negative indices count from end)
+
+**Returns:** `T | undefined` - Element at index or undefined
+
+**Example:**
+```typescript
+const arr = [1, 2, 3, 4, 5];
+ArrayUtils.at(arr, 0); // 1
+ArrayUtils.at(arr, -1); // 5
+ArrayUtils.at(arr, -2); // 4
+```
+
+---
+
+### shuffle
+
+Randomly shuffle array elements using Fisher-Yates algorithm.
+
+```typescript
+static shuffle<T>(arr: T[]): T[]
+```
+
+**Parameters:**
+- `arr: T[]` - The array to shuffle
+
+**Returns:** `T[]` - New shuffled array (original is not modified)
+
+**Example:**
+```typescript
+const cards = ['A', 'K', 'Q', 'J'];
+ArrayUtils.shuffle(cards); // ['Q', 'A', 'J', 'K'] (random order)
+```
+
+---
+
+### random
+
+Get a random element from array.
+
+```typescript
+static random<T>(arr: T[]): T | undefined
+```
+
+**Parameters:**
+- `arr: T[]` - The array
+
+**Returns:** `T | undefined` - Random element or undefined if array is empty
+
+**Example:**
+```typescript
+const items = ['apple', 'banana', 'cherry'];
+ArrayUtils.random(items); // 'banana' (random)
+```
+
+---
+
+### randomN
+
+Get N random elements from array.
+
+```typescript
+static randomN<T>(arr: T[], n: number): T[]
+```
+
+**Parameters:**
+- `arr: T[]` - The array
+- `n: number` - Number of random elements to get
+
+**Returns:** `T[]` - Array of N random elements
+
+**Example:**
+```typescript
+const items = [1, 2, 3, 4, 5];
+ArrayUtils.randomN(items, 3); // [2, 5, 1] (random selection)
+```
+
+---
+
+### reverse
+
+Reverse array elements.
+
+```typescript
+static reverse<T>(arr: T[]): T[]
+```
+
+**Parameters:**
+- `arr: T[]` - The array to reverse
+
+**Returns:** `T[]` - New reversed array (original is not modified)
+
+**Example:**
+```typescript
+ArrayUtils.reverse([1, 2, 3, 4]); // [4, 3, 2, 1]
+```
+
+---
+
+### rotate
+
+Rotate array elements by specified steps.
+
+```typescript
+static rotate<T>(arr: T[], steps: number): T[]
+```
+
+**Parameters:**
+- `arr: T[]` - The array to rotate
+- `steps: number` - Number of positions to rotate (positive = right, negative = left)
+
+**Returns:** `T[]` - New rotated array
+
+**Example:**
+```typescript
+const arr = [1, 2, 3, 4, 5];
+ArrayUtils.rotate(arr, 2); // [4, 5, 1, 2, 3]
+ArrayUtils.rotate(arr, -2); // [3, 4, 5, 1, 2]
+```
+
+---
+
+### zip
+
+Zip multiple arrays together into tuples.
+
+```typescript
+static zip<T>(...arrays: T[][]): T[][]
+```
+
+**Parameters:**
+- `...arrays: T[][]` - Arrays to zip together
+
+**Returns:** `T[][]` - Array of tuples
+
+**Example:**
+```typescript
+const names = ['Alice', 'Bob', 'Charlie'];
+const ages = [25, 30, 35];
+const cities = ['NYC', 'LA'];
+ArrayUtils.zip(names, ages, cities);
+// [['Alice', 25, 'NYC'], ['Bob', 30, 'LA'], ['Charlie', 35, undefined]]
+```
+
+---
+
+### unzip
+
+Unzip array of tuples into separate arrays.
+
+```typescript
+static unzip<T>(arr: T[][]): T[][]
+```
+
+**Parameters:**
+- `arr: T[][]` - Array of tuples to unzip
+
+**Returns:** `T[][]` - Array of separate arrays
+
+**Example:**
+```typescript
+const tuples = [['Alice', 25], ['Bob', 30], ['Charlie', 35]];
+ArrayUtils.unzip(tuples);
+// [['Alice', 'Bob', 'Charlie'], [25, 30, 35]]
+```
+
+---
+
+### difference
+
+Find elements in first array that are not in second array.
+
+```typescript
+static difference<T>(arr1: T[], arr2: T[]): T[]
+```
+
+**Parameters:**
+- `arr1: T[]` - First array
+- `arr2: T[]` - Second array
+
+**Returns:** `T[]` - Elements unique to first array
+
+**Example:**
+```typescript
+ArrayUtils.difference([1, 2, 3, 4], [2, 4, 6]); // [1, 3]
+```
+
+---
+
+### intersection
+
+Find common elements between two arrays.
+
+```typescript
+static intersection<T>(arr1: T[], arr2: T[]): T[]
+```
+
+**Parameters:**
+- `arr1: T[]` - First array
+- `arr2: T[]` - Second array
+
+**Returns:** `T[]` - Common elements
+
+**Example:**
+```typescript
+ArrayUtils.intersection([1, 2, 3, 4], [2, 4, 6]); // [2, 4]
+```
+
+---
+
+### union
+
+Find all unique elements from both arrays.
+
+```typescript
+static union<T>(arr1: T[], arr2: T[]): T[]
+```
+
+**Parameters:**
+- `arr1: T[]` - First array
+- `arr2: T[]` - Second array
+
+**Returns:** `T[]` - Combined unique elements
+
+**Example:**
+```typescript
+ArrayUtils.union([1, 2, 3], [3, 4, 5]); // [1, 2, 3, 4, 5]
+```
+
+---
+
+### includesAll
+
+Check if array includes all elements from another array.
+
+```typescript
+static includesAll<T>(arr: T[], items: T[]): boolean
+```
+
+**Parameters:**
+- `arr: T[]` - The array to check
+- `items: T[]` - Elements to look for
+
+**Returns:** `boolean` - True if all items are present
+
+**Example:**
+```typescript
+ArrayUtils.includesAll([1, 2, 3, 4], [2, 4]); // true
+ArrayUtils.includesAll([1, 2, 3, 4], [2, 5]); // false
+```
+
+---
+
+### includesAny
+
+Check if array includes any element from another array.
+
+```typescript
+static includesAny<T>(arr: T[], items: T[]): boolean
+```
+
+**Parameters:**
+- `arr: T[]` - The array to check
+- `items: T[]` - Elements to look for
+
+**Returns:** `boolean` - True if any item is present
+
+**Example:**
+```typescript
+ArrayUtils.includesAny([1, 2, 3, 4], [5, 6]); // false
+ArrayUtils.includesAny([1, 2, 3, 4], [2, 5]); // true
+```
+
+---
+
+### sum
+
+Calculate sum of all numbers in array.
+
+```typescript
+static sum(arr: number[]): number
+```
+
+**Parameters:**
+- `arr: number[]` - Array of numbers
+
+**Returns:** `number` - Sum of all numbers
+
+**Example:**
+```typescript
+ArrayUtils.sum([1, 2, 3, 4, 5]); // 15
+```
+
+---
+
+### average
+
+Calculate average (mean) of numbers in array.
+
+```typescript
+static average(arr: number[]): number
+```
+
+**Parameters:**
+- `arr: number[]` - Array of numbers
+
+**Returns:** `number` - Average value (0 if array is empty)
+
+**Example:**
+```typescript
+ArrayUtils.average([1, 2, 3, 4, 5]); // 3
+```
+
+---
+
+### min
+
+Find minimum value in array.
+
+```typescript
+static min(arr: number[]): number | undefined
+```
+
+**Parameters:**
+- `arr: number[]` - Array of numbers
+
+**Returns:** `number | undefined` - Minimum value or undefined if empty
+
+**Example:**
+```typescript
+ArrayUtils.min([3, 1, 4, 1, 5]); // 1
+```
+
+---
+
+### max
+
+Find maximum value in array.
+
+```typescript
+static max(arr: number[]): number | undefined
+```
+
+**Parameters:**
+- `arr: number[]` - Array of numbers
+
+**Returns:** `number | undefined` - Maximum value or undefined if empty
+
+**Example:**
+```typescript
+ArrayUtils.max([3, 1, 4, 1, 5]); // 5
+```
+
+---
+
+### range
+
+Generate array of numbers from start to end (exclusive).
+
+```typescript
+static range(start: number, end: number, step = 1): number[]
+```
+
+**Parameters:**
+- `start: number` - Starting number
+- `end: number` - Ending number (exclusive)
+- `step: number` - Step increment (default: 1)
+
+**Returns:** `number[]` - Array of numbers
+
+**Example:**
+```typescript
+ArrayUtils.range(0, 5); // [0, 1, 2, 3, 4]
+ArrayUtils.range(0, 10, 2); // [0, 2, 4, 6, 8]
+ArrayUtils.range(5, 0, -1); // [5, 4, 3, 2, 1]
+```
+
+---
+
+### repeat
+
+Repeat array elements N times.
+
+```typescript
+static repeat<T>(arr: T[], times: number): T[]
+```
+
+**Parameters:**
+- `arr: T[]` - The array to repeat
+- `times: number` - Number of repetitions
+
+**Returns:** `T[]` - Repeated array
+
+**Example:**
+```typescript
+ArrayUtils.repeat([1, 2], 3); // [1, 2, 1, 2, 1, 2]
+```
+
+---
+
+### fill
+
+Create array filled with specified value.
+
+```typescript
+static fill<T>(length: number, value: T): T[]
+```
+
+**Parameters:**
+- `length: number` - Length of array
+- `value: T` - Value to fill with
+
+**Returns:** `T[]` - Filled array
+
+**Example:**
+```typescript
+ArrayUtils.fill(5, 0); // [0, 0, 0, 0, 0]
+ArrayUtils.fill(3, 'hello'); // ['hello', 'hello', 'hello']
+```
+
+---
+
+### transpose
+
+Transpose 2D array (swap rows and columns).
+
+```typescript
+static transpose<T>(arr: T[][]): T[][]
+```
+
+**Parameters:**
+- `arr: T[][]` - 2D array to transpose
+
+**Returns:** `T[][]` - Transposed array
+
+**Example:**
+```typescript
+const matrix = [
+  [1, 2, 3],
+  [4, 5, 6]
+];
+ArrayUtils.transpose(matrix);
+// [[1, 4], [2, 5], [3, 6]]
+```
+
+---
+
+### findIndex
+
+Find index of element matching predicate.
+
+```typescript
+static findIndex<T>(
+  arr: T[],
+  predicate: (item: T, index: number) => boolean
+): number
+```
+
+**Parameters:**
+- `arr: T[]` - The array to search
+- `predicate: (item: T, index: number) => boolean` - Function to test elements
+
+**Returns:** `number` - Index of first match or -1
+
+**Example:**
+```typescript
+const users = [{ id: 1 }, { id: 2 }, { id: 3 }];
+ArrayUtils.findIndex(users, u => u.id === 2); // 1
+```
+
+---
+
+### findLastIndex
+
+Find last index of element matching predicate.
+
+```typescript
+static findLastIndex<T>(
+  arr: T[],
+  predicate: (item: T, index: number) => boolean
+): number
+```
+
+**Parameters:**
+- `arr: T[]` - The array to search
+- `predicate: (item: T, index: number) => boolean` - Function to test elements
+
+**Returns:** `number` - Index of last match or -1
+
+**Example:**
+```typescript
+const numbers = [1, 2, 3, 2, 1];
+ArrayUtils.findLastIndex(numbers, n => n === 2); // 3
+```
+
+---
+
+### partition
+
+Partition array into two arrays based on predicate.
+
+```typescript
+static partition<T>(arr: T[], predicate: (item: T) => boolean): [T[], T[]]
+```
+
+**Parameters:**
+- `arr: T[]` - The array to partition
+- `predicate: (item: T) => boolean` - Function to test elements
+
+**Returns:** `[T[], T[]]` - Tuple of [passing elements, failing elements]
+
+**Example:**
+```typescript
+const numbers = [1, 2, 3, 4, 5, 6];
+const [evens, odds] = ArrayUtils.partition(numbers, n => n % 2 === 0);
+console.log(evens); // [2, 4, 6]
+console.log(odds); // [1, 3, 5]
+```

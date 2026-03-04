@@ -1,0 +1,392 @@
+---
+title: "HTTP Status Helper"
+description: "Utilities for working with HTTP status codes"
+---
+
+## Overview
+
+The HTTP Status Helper provides constants and utility functions for working with HTTP status codes. It includes status code constants, validation helpers, and human-readable status messages.
+
+## Status Code Constants
+
+The `HTTP_STATUS` object provides constants for common HTTP status codes:
+
+### 2xx Success
+```typescript
+HTTP_STATUS.OK                  // 200
+HTTP_STATUS.CREATED             // 201
+HTTP_STATUS.ACCEPTED            // 202
+HTTP_STATUS.NO_CONTENT          // 204
+HTTP_STATUS.RESET_CONTENT       // 205
+HTTP_STATUS.PARTIAL_CONTENT     // 206
+```
+
+### 3xx Redirection
+```typescript
+HTTP_STATUS.MULTIPLE_CHOICES     // 300
+HTTP_STATUS.MOVED_PERMANENTLY    // 301
+HTTP_STATUS.FOUND                // 302
+HTTP_STATUS.SEE_OTHER            // 303
+HTTP_STATUS.NOT_MODIFIED         // 304
+HTTP_STATUS.TEMPORARY_REDIRECT   // 307
+HTTP_STATUS.PERMANENT_REDIRECT   // 308
+```
+
+### 4xx Client Errors
+```typescript
+HTTP_STATUS.BAD_REQUEST                  // 400
+HTTP_STATUS.UNAUTHORIZED                 // 401
+HTTP_STATUS.PAYMENT_REQUIRED             // 402
+HTTP_STATUS.FORBIDDEN                    // 403
+HTTP_STATUS.NOT_FOUND                    // 404
+HTTP_STATUS.METHOD_NOT_ALLOWED           // 405
+HTTP_STATUS.NOT_ACCEPTABLE               // 406
+HTTP_STATUS.PROXY_AUTHENTICATION_REQUIRED // 407
+HTTP_STATUS.REQUEST_TIMEOUT              // 408
+HTTP_STATUS.CONFLICT                     // 409
+HTTP_STATUS.GONE                         // 410
+HTTP_STATUS.LENGTH_REQUIRED              // 411
+HTTP_STATUS.PRECONDITION_FAILED          // 412
+HTTP_STATUS.PAYLOAD_TOO_LARGE            // 413
+HTTP_STATUS.URI_TOO_LONG                 // 414
+HTTP_STATUS.UNSUPPORTED_MEDIA_TYPE       // 415
+HTTP_STATUS.RANGE_NOT_SATISFIABLE        // 416
+HTTP_STATUS.EXPECTATION_FAILED           // 417
+HTTP_STATUS.UNPROCESSABLE_ENTITY         // 422
+HTTP_STATUS.TOO_MANY_REQUESTS            // 429
+```
+
+### 5xx Server Errors
+```typescript
+HTTP_STATUS.INTERNAL_SERVER_ERROR        // 500
+HTTP_STATUS.NOT_IMPLEMENTED              // 501
+HTTP_STATUS.BAD_GATEWAY                  // 502
+HTTP_STATUS.SERVICE_UNAVAILABLE          // 503
+HTTP_STATUS.GATEWAY_TIMEOUT              // 504
+HTTP_STATUS.HTTP_VERSION_NOT_SUPPORTED   // 505
+```
+
+## Functions
+
+### isSuccess
+
+Check if a status code indicates success (2xx).
+
+```typescript
+function isSuccess(status: number): boolean
+```
+
+**Parameters:**
+- `status` - HTTP status code to check
+
+**Returns:** `true` if status is in the 2xx range
+
+**Example:**
+```typescript
+import { isSuccess, HTTP_STATUS } from '@bytekit/utils';
+
+if (isSuccess(response.status)) {
+  console.log('Request succeeded');
+}
+
+// Check specific status
+if (response.status === HTTP_STATUS.OK) {
+  processData(response.data);
+}
+```
+
+### isRedirect
+
+Check if a status code indicates redirection (3xx).
+
+```typescript
+function isRedirect(status: number): boolean
+```
+
+**Parameters:**
+- `status` - HTTP status code to check
+
+**Returns:** `true` if status is in the 3xx range
+
+**Example:**
+```typescript
+import { isRedirect } from '@bytekit/utils';
+
+if (isRedirect(response.status)) {
+  const newLocation = response.headers.get('Location');
+  window.location.href = newLocation;
+}
+```
+
+### isClientError
+
+Check if a status code indicates a client error (4xx).
+
+```typescript
+function isClientError(status: number): boolean
+```
+
+**Parameters:**
+- `status` - HTTP status code to check
+
+**Returns:** `true` if status is in the 4xx range
+
+**Example:**
+```typescript
+import { isClientError, HTTP_STATUS } from '@bytekit/utils';
+
+if (isClientError(response.status)) {
+  if (response.status === HTTP_STATUS.UNAUTHORIZED) {
+    redirectToLogin();
+  } else if (response.status === HTTP_STATUS.NOT_FOUND) {
+    showNotFoundPage();
+  }
+}
+```
+
+### isServerError
+
+Check if a status code indicates a server error (5xx).
+
+```typescript
+function isServerError(status: number): boolean
+```
+
+**Parameters:**
+- `status` - HTTP status code to check
+
+**Returns:** `true` if status is in the 5xx range
+
+**Example:**
+```typescript
+import { isServerError } from '@bytekit/utils';
+
+if (isServerError(response.status)) {
+  console.error('Server error occurred');
+  showErrorPage();
+}
+```
+
+### isError
+
+Check if a status code indicates any error (4xx or 5xx).
+
+```typescript
+function isError(status: number): boolean
+```
+
+**Parameters:**
+- `status` - HTTP status code to check
+
+**Returns:** `true` if status is in the 4xx or 5xx range
+
+**Example:**
+```typescript
+import { isError } from '@bytekit/utils';
+
+const response = await fetch(url);
+
+if (isError(response.status)) {
+  throw new Error(`Request failed: ${response.status}`);
+}
+```
+
+### getStatusMessage
+
+Get a human-readable message for a status code.
+
+```typescript
+function getStatusMessage(status: number): string
+```
+
+**Parameters:**
+- `status` - HTTP status code
+
+**Returns:** Human-readable status message or "Unknown Status"
+
+**Example:**
+```typescript
+import { getStatusMessage } from '@bytekit/utils';
+
+const message = getStatusMessage(404); // "Not Found"
+const message2 = getStatusMessage(200); // "OK"
+const message3 = getStatusMessage(503); // "Service Unavailable"
+
+console.log(`Request returned: ${message}`);
+```
+
+### getStatusCategory
+
+Get the category name for a status code.
+
+```typescript
+function getStatusCategory(
+  status: number
+): "success" | "redirect" | "client_error" | "server_error" | "unknown"
+```
+
+**Parameters:**
+- `status` - HTTP status code
+
+**Returns:** Status category name
+
+**Example:**
+```typescript
+import { getStatusCategory } from '@bytekit/utils';
+
+const category = getStatusCategory(200); // "success"
+const category2 = getStatusCategory(404); // "client_error"
+const category3 = getStatusCategory(500); // "server_error"
+
+switch (category) {
+  case 'success':
+    handleSuccess();
+    break;
+  case 'client_error':
+    handleClientError();
+    break;
+  case 'server_error':
+    handleServerError();
+    break;
+}
+```
+
+### isRetryable
+
+Check if a status code indicates a retryable error.
+
+```typescript
+function isRetryable(status: number): boolean
+```
+
+**Parameters:**
+- `status` - HTTP status code to check
+
+**Returns:** `true` if the request should be retried
+
+**Retryable Status Codes:**
+- 408 (Request Timeout)
+- 429 (Too Many Requests)
+- 500 (Internal Server Error)
+- 502 (Bad Gateway)
+- 503 (Service Unavailable)
+- 504 (Gateway Timeout)
+
+**Example:**
+```typescript
+import { isRetryable } from '@bytekit/utils';
+
+async function fetchWithRetry(url: string, maxRetries = 3) {
+  let attempts = 0;
+  
+  while (attempts < maxRetries) {
+    const response = await fetch(url);
+    
+    if (response.ok) {
+      return response;
+    }
+    
+    if (!isRetryable(response.status)) {
+      throw new Error('Non-retryable error');
+    }
+    
+    attempts++;
+    await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+  }
+  
+  throw new Error('Max retries exceeded');
+}
+```
+
+### isCacheable
+
+Check if a status code indicates the response is cacheable.
+
+```typescript
+function isCacheable(status: number): boolean
+```
+
+**Parameters:**
+- `status` - HTTP status code to check
+
+**Returns:** `true` if the response can be cached
+
+**Cacheable Status Codes:**
+- 200 (OK)
+- 203 (Non-Authoritative Information)
+- 204 (No Content)
+- 206 (Partial Content)
+- 300 (Multiple Choices)
+- 301 (Moved Permanently)
+- 404 (Not Found)
+- 405 (Method Not Allowed)
+- 410 (Gone)
+- 414 (URI Too Long)
+- 501 (Not Implemented)
+
+**Example:**
+```typescript
+import { isCacheable } from '@bytekit/utils';
+
+const response = await fetch(url);
+
+if (isCacheable(response.status)) {
+  // Store in cache
+  await cacheResponse(url, response);
+}
+```
+
+## Complete Example
+
+```typescript
+import {
+  HTTP_STATUS,
+  isSuccess,
+  isError,
+  isRetryable,
+  getStatusMessage,
+  getStatusCategory
+} from '@bytekit/utils';
+
+class ApiClient {
+  async request(url: string, options: RequestInit) {
+    let attempts = 0;
+    const maxRetries = 3;
+    
+    while (attempts < maxRetries) {
+      const response = await fetch(url, options);
+      const status = response.status;
+      const category = getStatusCategory(status);
+      
+      console.log(`Response: ${status} ${getStatusMessage(status)}`);
+      console.log(`Category: ${category}`);
+      
+      if (isSuccess(status)) {
+        return response.json();
+      }
+      
+      if (status === HTTP_STATUS.UNAUTHORIZED) {
+        await this.refreshToken();
+        attempts++;
+        continue;
+      }
+      
+      if (isRetryable(status)) {
+        attempts++;
+        await new Promise(resolve => 
+          setTimeout(resolve, 1000 * Math.pow(2, attempts))
+        );
+        continue;
+      }
+      
+      throw new Error(`Request failed: ${getStatusMessage(status)}`);
+    }
+    
+    throw new Error('Max retries exceeded');
+  }
+  
+  private async refreshToken() {
+    // Refresh authentication token
+  }
+}
+```

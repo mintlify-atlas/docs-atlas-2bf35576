@@ -1,0 +1,483 @@
+---
+title: PaginationHelper
+description: Manage paginated data with offset-based and cursor-based pagination
+---
+
+## Overview
+
+The `PaginationHelper` class provides utilities for managing paginated data in both offset-based and cursor-based modes. It handles page navigation, state management, and provides easy-to-use APIs for building pagination UIs.
+
+## Import
+
+```typescript
+import { PaginationHelper, createPaginator } from 'bytekit';
+```
+
+## Usage
+
+### Offset-Based Pagination
+
+```typescript
+const items = Array.from({ length: 100 }, (_, i) => ({ id: i, name: `Item ${i}` }));
+
+const paginator = new PaginationHelper(items, {
+  pageSize: 10,
+  mode: 'offset' // default
+});
+
+// Get current page
+const page1 = paginator.getCurrentPage();
+console.log(page1); // Items 0-9
+
+// Navigate
+const page2 = paginator.next();
+console.log(page2); // Items 10-19
+
+const page1Again = paginator.previous();
+
+// Jump to specific page
+const page5 = paginator.goToPage(5);
+
+// Get pagination state
+const state = paginator.getState();
+console.log(state);
+// {
+//   currentPage: 5,
+//   pageSize: 10,
+//   total: 100,
+//   totalPages: 10,
+//   hasNextPage: true,
+//   hasPreviousPage: true
+// }
+```
+
+### Cursor-Based Pagination
+
+```typescript
+const paginator = new PaginationHelper(items, {
+  pageSize: 20,
+  mode: 'cursor'
+});
+
+// Get current page
+const page1 = paginator.getCurrentPageByCursor();
+
+// Navigate
+const page2 = paginator.nextByCursor();
+const page1Again = paginator.previousByCursor();
+
+// Get cursor state
+const cursorState = paginator.getCursorState();
+console.log(cursorState);
+// {
+//   cursor: 'eyJpbmRleCI6MjB9',
+//   nextCursor: 'eyJpbmRleCI6NDB9',
+//   previousCursor: 'eyJpbmRleCI6MH0',
+//   hasNextPage: true,
+//   hasPreviousPage: true
+// }
+
+// Navigate to specific cursor
+paginator.goToCursor(cursorState.nextCursor!);
+```
+
+### Building Pagination UI
+
+```typescript
+const paginator = new PaginationHelper(items, { pageSize: 10 });
+
+function renderPagination() {
+  const state = paginator.getState();
+  
+  return {
+    items: paginator.getCurrentPage(),
+    currentPage: state.currentPage,
+    totalPages: state.totalPages,
+    canGoNext: state.hasNextPage,
+    canGoPrevious: state.hasPreviousPage,
+    onNext: () => paginator.next(),
+    onPrevious: () => paginator.previous(),
+    onGoToPage: (page: number) => paginator.goToPage(page)
+  };
+}
+```
+
+### Dynamic Data Updates
+
+```typescript
+const paginator = createPaginator(initialItems, { pageSize: 15 });
+
+// Later, update the dataset
+const newItems = await fetchUpdatedData();
+paginator.setItems(newItems); // Automatically resets to page 1
+
+// Get all items
+const allItems = paginator.getAllItems();
+```
+
+### Factory Function
+
+```typescript
+const paginator = createPaginator(items, {
+  pageSize: 25,
+  mode: 'cursor'
+});
+```
+
+## API Reference
+
+### Constructor
+
+<ParamField path="items" type="T[]" required>
+  Array of items to paginate
+</ParamField>
+
+<ParamField path="options" type="object" default="{}">
+  Pagination options
+  
+  <Expandable title="properties">
+    <ParamField path="pageSize" type="number" default="10">
+      Number of items per page
+    </ParamField>
+    <ParamField path="mode" type="'offset' | 'cursor'" default="'offset'">
+      Pagination mode
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Methods (Offset Mode)
+
+#### getCurrentPage
+
+Get items for the current page.
+
+<ResponseField name="return" type="T[]">
+  Array of items for current page
+</ResponseField>
+
+```typescript
+const items = paginator.getCurrentPage();
+```
+
+#### next
+
+Navigate to next page.
+
+<ResponseField name="return" type="T[]">
+  Items for next page (or current page if at end)
+</ResponseField>
+
+```typescript
+const nextPageItems = paginator.next();
+```
+
+#### previous
+
+Navigate to previous page.
+
+<ResponseField name="return" type="T[]">
+  Items for previous page (or current page if at start)
+</ResponseField>
+
+```typescript
+const prevPageItems = paginator.previous();
+```
+
+#### goToPage
+
+Jump to specific page number.
+
+<ParamField path="page" type="number" required>
+  Page number (1-indexed)
+</ParamField>
+
+<ResponseField name="return" type="T[]">
+  Items for the specified page
+</ResponseField>
+
+```typescript
+const page5Items = paginator.goToPage(5);
+```
+
+#### getCurrentPageNumber
+
+Get current page number.
+
+<ResponseField name="return" type="number">
+  Current page number (1-indexed)
+</ResponseField>
+
+#### getTotalPages
+
+Get total number of pages.
+
+<ResponseField name="return" type="number">
+  Total pages
+</ResponseField>
+
+#### getState
+
+Get complete pagination state.
+
+<ResponseField name="return" type="PaginationState">
+  Current pagination state
+  
+  ```typescript
+  interface PaginationState {
+    currentPage: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  }
+  ```
+</ResponseField>
+
+### Methods (Cursor Mode)
+
+#### getCurrentPageByCursor
+
+Get items for current cursor position.
+
+<ResponseField name="return" type="T[]">
+  Array of items for current cursor
+</ResponseField>
+
+#### nextByCursor
+
+Navigate to next cursor.
+
+<ResponseField name="return" type="T[]">
+  Items for next cursor
+</ResponseField>
+
+#### previousByCursor
+
+Navigate to previous cursor.
+
+<ResponseField name="return" type="T[]">
+  Items for previous cursor
+</ResponseField>
+
+#### goToCursor
+
+Navigate to specific cursor.
+
+<ParamField path="cursor" type="string" required>
+  Base64-encoded cursor string
+</ParamField>
+
+<ResponseField name="return" type="T[]">
+  Items for the cursor position
+</ResponseField>
+
+#### getCursorState
+
+Get cursor pagination state.
+
+<ResponseField name="return" type="CursorPaginationState">
+  Current cursor state
+  
+  ```typescript
+  interface CursorPaginationState {
+    cursor?: string;
+    nextCursor?: string;
+    previousCursor?: string;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  }
+  ```
+</ResponseField>
+
+### Common Methods
+
+#### hasNextPage
+
+Check if there's a next page.
+
+<ResponseField name="return" type="boolean">
+  True if next page exists
+</ResponseField>
+
+#### hasPreviousPage
+
+Check if there's a previous page.
+
+<ResponseField name="return" type="boolean">
+  True if previous page exists
+</ResponseField>
+
+#### getTotalItems
+
+Get total number of items.
+
+<ResponseField name="return" type="number">
+  Total item count
+</ResponseField>
+
+#### setPageSize
+
+Change page size (resets to first page).
+
+<ParamField path="size" type="number" required>
+  New page size (must be > 0)
+</ParamField>
+
+```typescript
+paginator.setPageSize(25); // Now showing 25 items per page
+```
+
+#### setItems
+
+Replace items array (resets to first page).
+
+<ParamField path="items" type="T[]" required>
+  New items array
+</ParamField>
+
+```typescript
+const newData = await fetchData();
+paginator.setItems(newData);
+```
+
+#### getAllItems
+
+Get all items (unpaginated).
+
+<ResponseField name="return" type="T[]">
+  Copy of all items
+</ResponseField>
+
+#### reset
+
+Reset to first page.
+
+```typescript
+paginator.reset();
+```
+
+## Types
+
+### PaginationMode
+
+```typescript
+type PaginationMode = 'offset' | 'cursor';
+```
+
+### PaginationState
+
+```typescript
+interface PaginationState {
+  currentPage: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+```
+
+### CursorPaginationState
+
+```typescript
+interface CursorPaginationState {
+  cursor?: string;
+  nextCursor?: string;
+  previousCursor?: string;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+```
+
+## Use Cases
+
+### API Response Pagination
+
+```typescript
+interface User {
+  id: string;
+  name: string;
+}
+
+const users = await fetchUsers();
+const paginator = createPaginator<User>(users, { pageSize: 20 });
+
+function getUsersPage(page: number) {
+  const items = paginator.goToPage(page);
+  const state = paginator.getState();
+  
+  return {
+    data: items,
+    pagination: {
+      page: state.currentPage,
+      pageSize: state.pageSize,
+      total: state.total,
+      totalPages: state.totalPages
+    }
+  };
+}
+```
+
+### Infinite Scroll with Cursors
+
+```typescript
+const paginator = createPaginator(items, {
+  pageSize: 30,
+  mode: 'cursor'
+});
+
+function loadMore() {
+  if (paginator.hasNextPage()) {
+    const moreItems = paginator.nextByCursor();
+    appendToUI(moreItems);
+    
+    const state = paginator.getCursorState();
+    updateScrollCursor(state.cursor);
+  }
+}
+```
+
+### Table Pagination
+
+```typescript
+class TablePagination<T> {
+  private paginator: PaginationHelper<T>;
+  
+  constructor(data: T[], pageSize = 10) {
+    this.paginator = new PaginationHelper(data, { pageSize });
+  }
+  
+  getTableState() {
+    const state = this.paginator.getState();
+    return {
+      rows: this.paginator.getCurrentPage(),
+      page: state.currentPage,
+      totalPages: state.totalPages,
+      canGoNext: state.hasNextPage,
+      canGoPrev: state.hasPreviousPage
+    };
+  }
+  
+  nextPage() {
+    return this.paginator.next();
+  }
+  
+  previousPage() {
+    return this.paginator.previous();
+  }
+}
+```
+
+## Best Practices
+
+1. **Choose the right mode**: Use offset for simple cases, cursor for large datasets
+2. **Immutable items**: Don't mutate items returned by the paginator
+3. **Reset on data change**: Call `setItems()` when data updates
+4. **Page size**: Balance between UX and performance (10-50 items typical)
+5. **State management**: Use `getState()` for UI rendering
+
+## Related
+
+- [HTTPClient](/api/networking/http-client) - For paginated API requests
+- [DataSource](/api/data/data-source) - For data management

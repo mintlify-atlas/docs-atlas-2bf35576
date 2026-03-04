@@ -1,0 +1,518 @@
+---
+title: "Svelte Integration"
+description: "Learn how to integrate ByteKit with Svelte applications using stores and reactive patterns"
+---
+
+## Overview
+
+ByteKit integrates beautifully with Svelte's reactive system and stores. This guide shows you how to build reactive, type-safe API integrations using Svelte patterns.
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install bytekit
+```
+
+```bash yarn
+yarn add bytekit
+```
+
+```bash pnpm
+pnpm add bytekit
+```
+</CodeGroup>
+
+## Basic Setup
+
+### Simple Component Example
+
+The simplest way to use ByteKit in Svelte:
+
+```svelte
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { createApiClient } from 'bytekit';
+
+  interface User {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    website: string;
+  }
+
+  const client = createApiClient({
+    baseUrl: 'https://api.example.com',
+    timeoutMs: 5000,
+    retryPolicy: { maxRetries: 3 }
+  });
+
+  let data: User | null = null;
+  let loading = true;
+  let error: string | null = null;
+
+  onMount(async () => {
+    try {
+      data = await client.get('/users/1') as User;
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Unknown error';
+    } finally {
+      loading = false;
+    }
+  });
+</script>
+
+<div class="container">
+  <h1>ByteKit + Svelte</h1>
+  
+  <div class="example">
+    <h2>API Client Example</h2>
+    
+    {#if loading}
+      <p>Loading...</p>
+    {:else if error}
+      <p class="error">Error: {error}</p>
+    {:else if data}
+      <pre class="result">{JSON.stringify(data, null, 2)}</pre>
+    {/if}
+  </div>
+
+  <div class="features">
+    <p>✅ Svelte reactive stores</p>
+    <p>✅ Simple and clean API</p>
+    <p>✅ TypeScript ready</p>
+  </div>
+</div>
+
+<style>
+  .container {
+    padding: 2rem;
+    font-family: system-ui;
+  }
+
+  .example {
+    margin-top: 2rem;
+  }
+
+  .error {
+    color: red;
+  }
+
+  .result {
+    background: #f5f5f5;
+    padding: 1rem;
+    border-radius: 8px;
+    overflow: auto;
+  }
+
+  .features {
+    margin-top: 2rem;
+    font-size: 0.9rem;
+    color: #666;
+  }
+</style>
+```
+
+## Using Svelte Stores
+
+Create reusable stores for API state management:
+
+```ts
+// stores/api.ts
+import { writable } from "svelte/store";
+import { createApiClient } from "bytekit";
+
+export function createApiStore(config: Parameters<typeof createApiClient>[0]) {
+    const client = createApiClient(config);
+    return client;
+}
+
+interface QueryState<T> {
+    data: T | null;
+    loading: boolean;
+    error: string | null;
+}
+
+export function createQueryStore<T>(
+    client: ReturnType<typeof createApiClient>,
+    url: string
+) {
+    const { subscribe, set, update } = writable<QueryState<T>>({
+        data: null,
+        loading: true,
+        error: null,
+    });
+
+    async function fetch() {
+        update((state) => ({ ...state, loading: true }));
+
+        try {
+            const data = await client.get(url);
+            set({ data: data as T, loading: false, error: null });
+        } catch (err) {
+            set({
+                data: null,
+                loading: false,
+                error: err instanceof Error ? err.message : "Unknown error",
+            });
+        }
+    }
+
+    fetch();
+
+    return {
+        subscribe,
+        refetch: fetch,
+    };
+}
+```
+
+### Usage with Stores
+
+```svelte
+<script lang="ts">
+  import { createApiStore, createQueryStore } from './stores/api';
+
+  interface User {
+    id: number;
+    name: string;
+    email: string;
+  }
+
+  const apiClient = createApiStore({
+    baseUrl: 'https://api.example.com',
+    timeoutMs: 5000,
+  });
+
+  const userStore = createQueryStore<User>(apiClient, '/users/1');
+</script>
+
+<div>
+  {#if $userStore.loading}
+    <p>Loading...</p>
+  {:else if $userStore.error}
+    <p class="error">{$userStore.error}</p>
+  {:else if $userStore.data}
+    <div>
+      <h2>{$userStore.data.name}</h2>
+      <p>{$userStore.data.email}</p>
+      <button on:click={() => userStore.refetch()}>Refresh</button>
+    </div>
+  {/if}
+</div>
+```
+
+## Using QueryClient
+
+Integrate ByteKit's `QueryClient` for advanced caching:
+
+```ts
+// stores/queryClient.ts
+import { writable } from "svelte/store";
+import { createApiClient, createQueryClient } from "bytekit";
+
+const apiClient = createApiClient({
+    baseUrl: "https://api.example.com",
+});
+
+export const queryClient = createQueryClient(apiClient, {
+    defaultStaleTime: 5000,
+    defaultCacheTime: 60000,
+    globalCallbacks: {
+        onStart: (context) => {
+            console.log(`[Query] ${context.method} ${context.url}`);
+        },
+    },
+});
+
+interface QueryState<T> {
+    data: T | null;
+    loading: boolean;
+    error: Error | null;
+}
+
+export function createQuery<T>(queryKey: string[], path: string) {
+    const store = writable<QueryState<T>>({
+        data: null,
+        loading: true,
+        error: null,
+    });
+
+    async function fetch() {
+        store.update((s) => ({ ...s, loading: true }));
+
+        try {
+            const result = await queryClient.query({ queryKey, path });
+            store.set({ data: result as T, loading: false, error: null });
+        } catch (err) {
+            store.set({
+                data: null,
+                loading: false,
+                error: err as Error,
+            });
+        }
+    }
+
+    fetch();
+
+    return {
+        subscribe: store.subscribe,
+        refetch: fetch,
+    };
+}
+```
+
+### Usage Example
+
+```svelte
+<script lang="ts">
+  import { createQuery } from './stores/queryClient';
+
+  interface User {
+    id: number;
+    name: string;
+    email: string;
+  }
+
+  export let userId: string;
+
+  const query = createQuery<User>(['user', userId], `/users/${userId}`);
+</script>
+
+<div>
+  {#if $query.loading}
+    <p>Loading...</p>
+  {:else if $query.error}
+    <p>Error: {$query.error.message}</p>
+  {:else if $query.data}
+    <div>
+      <h2>{$query.data.name}</h2>
+      <p>{$query.data.email}</p>
+      <button on:click={query.refetch}>Refresh</button>
+    </div>
+  {/if}
+</div>
+```
+
+## Mutations
+
+Handle POST, PUT, DELETE operations:
+
+```ts
+// stores/mutations.ts
+import { writable } from "svelte/store";
+import type { Writable } from "svelte/store";
+import { createApiClient } from "bytekit";
+
+interface MutationState<T> {
+    data: T | null;
+    loading: boolean;
+    error: string | null;
+}
+
+export function createMutation<T, V>(
+    client: ReturnType<typeof createApiClient>
+) {
+    const store: Writable<MutationState<T>> = writable({
+        data: null,
+        loading: false,
+        error: null,
+    });
+
+    const mutate = async (url: string, body: V, method = "POST") => {
+        store.set({ data: null, loading: true, error: null });
+
+        try {
+            const response = await client.request({
+                url,
+                method,
+                body,
+            });
+            store.set({ data: response as T, loading: false, error: null });
+            return response as T;
+        } catch (err) {
+            const error = err instanceof Error ? err.message : "Unknown error";
+            store.set({ data: null, loading: false, error });
+            throw err;
+        }
+    };
+
+    return {
+        subscribe: store.subscribe,
+        mutate,
+    };
+}
+```
+
+### Usage Example
+
+```svelte
+<script lang="ts">
+  import { createApiStore } from './stores/api';
+  import { createMutation } from './stores/mutations';
+
+  interface User {
+    id: number;
+    name: string;
+    email: string;
+  }
+
+  const client = createApiStore({
+    baseUrl: 'https://api.example.com',
+  });
+
+  const mutation = createMutation<User, Partial<User>>(client);
+
+  let formData = {
+    name: '',
+    email: '',
+  };
+
+  async function handleSubmit() {
+    try {
+      const newUser = await mutation.mutate('/users', formData);
+      console.log('Created:', newUser);
+      formData = { name: '', email: '' };
+    } catch (err) {
+      // Error is already in state
+    }
+  }
+</script>
+
+<form on:submit|preventDefault={handleSubmit}>
+  <input bind:value={formData.name} placeholder="Name" />
+  <input bind:value={formData.email} placeholder="Email" />
+  
+  {#if $mutation.error}
+    <p class="error">{$mutation.error}</p>
+  {/if}
+  
+  <button disabled={$mutation.loading}>
+    {$mutation.loading ? 'Creating...' : 'Create User'}
+  </button>
+</form>
+```
+
+## Reactive Patterns
+
+### Auto-refetch on Prop Changes
+
+```svelte
+<script lang="ts">
+  import { createApiStore } from './stores/api';
+
+  export let userId: string;
+
+  const client = createApiStore({
+    baseUrl: 'https://api.example.com',
+  });
+
+  let data = null;
+  let loading = true;
+  let error = null;
+
+  $: {
+    loading = true;
+    client.get(`/users/${userId}`)
+      .then(result => {
+        data = result;
+        loading = false;
+      })
+      .catch(err => {
+        error = err.message;
+        loading = false;
+      });
+  }
+</script>
+
+<div>
+  {#if loading}
+    <p>Loading user {userId}...</p>
+  {:else if error}
+    <p>Error: {error}</p>
+  {:else if data}
+    <pre>{JSON.stringify(data, null, 2)}</pre>
+  {/if}
+</div>
+```
+
+## Best Practices
+
+<AccordionGroup>
+<Accordion title="1. Use Stores for Shared State">
+Create stores for API clients that need to be shared across components:
+
+```ts
+// stores/api.ts
+export const apiClient = createApiClient({
+    baseUrl: 'https://api.example.com',
+});
+```
+</Accordion>
+
+<Accordion title="2. Leverage Reactivity">
+Use Svelte's reactive statements (`$:`) for automatic refetching:
+
+```svelte
+<script>
+  export let userId;
+  $: userPromise = client.get(`/users/${userId}`);
+</script>
+
+{#await userPromise}
+  <p>Loading...</p>
+{:then user}
+  <p>{user.name}</p>
+{:catch error}
+  <p>Error: {error.message}</p>
+{/await}
+```
+</Accordion>
+
+<Accordion title="3. Type Safety">
+Use TypeScript for type-safe API responses:
+
+```ts
+const data = await client.get('/users/1') as User;
+// data is typed as User
+```
+</Accordion>
+
+<Accordion title="4. Cleanup">
+Stores automatically cleanup subscriptions, but cleanup async operations:
+
+```ts
+onMount(() => {
+    let cancelled = false;
+    
+    fetchData().then(data => {
+        if (!cancelled) {
+            // update state
+        }
+    });
+    
+    return () => {
+        cancelled = true;
+    };
+});
+```
+</Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="API Client Guide" icon="plug" href="/guides/api-client">
+  Learn more about ApiClient configuration
+</Card>
+<Card title="State Management" icon="database" href="/guides/state-management">
+  Explore QueryClient for advanced caching
+</Card>
+<Card title="TypeScript Support" icon="code" href="/cli/type-generation">
+  Generate types from OpenAPI specs
+</Card>
+<Card title="Error Handling" icon="triangle-exclamation" href="/examples/error-handling">
+  Best practices for error handling
+</Card>
+</CardGroup>

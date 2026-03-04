@@ -1,0 +1,66 @@
+---
+title: RequestCache
+description: HTTP request caching with TTL support
+---
+
+## Overview
+
+RequestCache provides intelligent caching of HTTP requests with TTL support.
+
+## Import
+
+```typescript
+import { RequestCache } from "bytekit";
+// or
+import { RequestCache } from "bytekit/request-cache";
+```
+
+## Usage
+
+```typescript
+const cache = new RequestCache({
+  ttl: 60000, // 1 minute
+  maxSize: 100
+});
+
+// Set cache entry
+cache.set("/users", responseData, { ttl: 120000 });
+
+// Get cache entry
+const cached = cache.get("/users");
+
+// Clear cache
+cache.clear();
+```
+
+## Integration with ApiClient
+
+```typescript
+import { ApiClient, RequestCache } from "bytekit";
+
+const cache = new RequestCache({ ttl: 60000 });
+
+const api = new ApiClient({
+  baseUrl: "https://api.example.com",
+  interceptors: {
+    request: async (url, init) => {
+      const cached = cache.get(url);
+      if (cached) {
+        return [url, { ...init, signal: AbortSignal.abort() }];
+      }
+      return [url, init];
+    },
+    response: async (response) => {
+      const data = await response.clone().json();
+      cache.set(response.url, data);
+      return response;
+    }
+  }
+});
+```
+
+## See Also
+
+- [ApiClient](/api/core/api-client)
+- [CacheManager](/api/helpers/cache-manager)
+- [Caching Strategies](/examples/caching-strategies)

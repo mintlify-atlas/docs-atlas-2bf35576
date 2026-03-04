@@ -1,0 +1,346 @@
+---
+title: EnvManager
+description: Isomorphic environment variable manager for Node.js and browsers
+---
+
+## Overview
+
+The `EnvManager` class provides a unified API for accessing environment variables across Node.js and browser environments. It automatically detects the runtime and uses the appropriate method to access environment variables.
+
+## Import
+
+```typescript
+import { EnvManager } from 'bytekit';
+```
+
+## Usage
+
+### Basic Usage
+
+```typescript
+const env = new EnvManager();
+
+// Get environment variable
+const apiUrl = env.get('API_URL');
+if (apiUrl) {
+  console.log('API URL:', apiUrl);
+}
+
+// Get required environment variable (throws if missing)
+try {
+  const apiKey = env.require('API_KEY');
+  console.log('API Key loaded');
+} catch (error) {
+  console.error('Missing required API_KEY');
+}
+
+// Check environment
+if (env.isProd()) {
+  console.log('Running in production');
+}
+```
+
+### With Vite
+
+```typescript
+// In Vite projects, environment variables are exposed via import.meta.env
+const env = new EnvManager();
+
+// Access Vite environment variables
+const apiUrl = env.get('VITE_API_URL');
+const mode = env.get('MODE'); // 'development' or 'production'
+```
+
+### With Next.js
+
+```typescript
+// Next.js exposes environment variables via process.env
+const env = new EnvManager();
+
+// Access Next.js public environment variables
+const publicApiUrl = env.get('NEXT_PUBLIC_API_URL');
+
+// Check if production
+if (env.isProd()) {
+  // Production-specific logic
+}
+```
+
+### Configuration Class
+
+```typescript
+class AppConfig {
+  private env = new EnvManager();
+  
+  get apiUrl(): string {
+    return this.env.require('API_URL');
+  }
+  
+  get apiKey(): string {
+    return this.env.require('API_KEY');
+  }
+  
+  get debug(): boolean {
+    return this.env.get('DEBUG') === 'true';
+  }
+  
+  get isProd(): boolean {
+    return this.env.isProd();
+  }
+  
+  get logLevel(): string {
+    return this.env.get('LOG_LEVEL') ?? 'info';
+  }
+}
+
+const config = new AppConfig();
+export default config;
+```
+
+### Validation
+
+```typescript
+class ConfigValidator {
+  private env = new EnvManager();
+  
+  validate() {
+    const required = ['API_URL', 'API_KEY', 'DATABASE_URL'];
+    const missing: string[] = [];
+    
+    for (const key of required) {
+      if (!this.env.get(key)) {
+        missing.push(key);
+      }
+    }
+    
+    if (missing.length > 0) {
+      throw new Error(
+        `Missing required environment variables: ${missing.join(', ')}`
+      );
+    }
+  }
+  
+  getConfig() {
+    this.validate();
+    return {
+      apiUrl: this.env.require('API_URL'),
+      apiKey: this.env.require('API_KEY'),
+      databaseUrl: this.env.require('DATABASE_URL')
+    };
+  }
+}
+```
+
+## API Reference
+
+### Methods
+
+#### get
+
+Get an environment variable value.
+
+<ParamField path="name" type="string" required>
+  Environment variable name
+</ParamField>
+
+<ResponseField name="return" type="string | undefined">
+  Environment variable value, or undefined if not found
+</ResponseField>
+
+```typescript
+const apiUrl = env.get('API_URL');
+if (apiUrl) {
+  // Use apiUrl
+}
+```
+
+#### require
+
+Get a required environment variable, throwing an error if not found.
+
+<ParamField path="name" type="string" required>
+  Environment variable name
+</ParamField>
+
+<ResponseField name="return" type="string">
+  Environment variable value
+</ResponseField>
+
+**Throws**: Error if environment variable is not defined
+
+```typescript
+try {
+  const apiKey = env.require('API_KEY');
+  // Use apiKey
+} catch (error) {
+  console.error('API_KEY is required');
+}
+```
+
+#### isProd
+
+Check if running in production environment.
+
+<ResponseField name="return" type="boolean">
+  True if NODE_ENV or MODE is 'production'
+</ResponseField>
+
+```typescript
+if (env.isProd()) {
+  // Production-specific code
+  console.log('Running in production');
+} else {
+  // Development-specific code
+  console.log('Running in development');
+}
+```
+
+## Runtime Detection
+
+The `EnvManager` automatically detects the runtime environment:
+
+- **Browser**: Uses `import.meta.env` (Vite, modern bundlers)
+- **Node.js**: Uses `process.env`
+
+```typescript
+// Works in both environments
+const env = new EnvManager();
+const value = env.get('MY_VAR');
+
+// Browser: reads from import.meta.env.MY_VAR
+// Node.js: reads from process.env.MY_VAR
+```
+
+## Environment Variables by Platform
+
+### Vite
+
+Vite exposes environment variables with `VITE_` prefix:
+
+```bash
+# .env
+VITE_API_URL=https://api.example.com
+VITE_API_KEY=abc123
+```
+
+```typescript
+const env = new EnvManager();
+const apiUrl = env.get('VITE_API_URL');
+```
+
+### Next.js
+
+Next.js exposes public variables with `NEXT_PUBLIC_` prefix:
+
+```bash
+# .env.local
+NEXT_PUBLIC_API_URL=https://api.example.com
+API_SECRET=secret123
+```
+
+```typescript
+const env = new EnvManager();
+const apiUrl = env.get('NEXT_PUBLIC_API_URL'); // Available in browser
+// API_SECRET only available in Node.js server-side code
+```
+
+### Node.js
+
+All environment variables are accessible:
+
+```bash
+# .env
+API_URL=https://api.example.com
+API_KEY=abc123
+DATABASE_URL=postgres://...
+```
+
+```typescript
+const env = new EnvManager();
+const apiUrl = env.get('API_URL');
+const dbUrl = env.require('DATABASE_URL');
+```
+
+## Use Cases
+
+### Application Configuration
+
+```typescript
+class Config {
+  private static env = new EnvManager();
+  
+  static readonly API_URL = Config.env.require('API_URL');
+  static readonly API_KEY = Config.env.require('API_KEY');
+  static readonly TIMEOUT = parseInt(Config.env.get('TIMEOUT') ?? '5000');
+  static readonly DEBUG = Config.env.get('DEBUG') === 'true';
+  static readonly IS_PROD = Config.env.isProd();
+}
+
+export default Config;
+```
+
+### Feature Flags
+
+```typescript
+class FeatureFlags {
+  private env = new EnvManager();
+  
+  isEnabled(feature: string): boolean {
+    const value = this.env.get(`FEATURE_${feature.toUpperCase()}`);
+    return value === 'true' || value === '1';
+  }
+}
+
+const flags = new FeatureFlags();
+if (flags.isEnabled('new_ui')) {
+  // Show new UI
+}
+```
+
+### Environment-Specific Behavior
+
+```typescript
+class Logger {
+  private env = new EnvManager();
+  
+  log(message: string) {
+    if (this.env.isProd()) {
+      // Production: send to logging service
+      this.sendToService(message);
+    } else {
+      // Development: log to console
+      console.log(message);
+    }
+  }
+}
+```
+
+## Best Practices
+
+1. **Validate early**: Check required variables at app startup
+2. **Use require()**: For critical variables to fail fast
+3. **Provide defaults**: Use `??` for optional variables with defaults
+4. **Type conversion**: Parse numbers/booleans explicitly
+5. **Prefix public vars**: Follow platform conventions (VITE_, NEXT_PUBLIC_)
+
+## Security
+
+<Warning>
+  Never expose secrets in browser environment variables. Only use public prefixes (VITE_, NEXT_PUBLIC_) for non-sensitive data.
+</Warning>
+
+```typescript
+// ❌ Bad: exposing secret in browser
+VITE_API_SECRET=secret123
+
+// ✅ Good: keep secrets server-side
+API_SECRET=secret123  // Not exposed to browser
+
+// ✅ Good: public config in browser
+VITE_API_URL=https://api.example.com
+```
+
+## Related
+
+- [HTTPClient](/api/networking/http-client) - Uses env for API configuration
+- [Logger](/api/utilities/logger) - Environment-based logging
