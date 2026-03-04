@@ -1,0 +1,198 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "ByteKit",
+  "projectDescription": "Lightning-fast TypeScript utilities: Isomorphic API client, async toolkit, QueryClient for state management, and CLI for type generation.",
+  "theme": "mint",
+  "primaryColor": "#cb0404",
+  "lightColor": "#f3d2d2",
+  "darkColor": "#e37b84",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/architecture",
+              "concepts/tree-shaking",
+              "concepts/isomorphic"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/api-client",
+              "guides/state-management",
+              "guides/logging-profiling",
+              "guides/framework-integration",
+              "guides/best-practices"
+            ]
+          },
+          {
+            "group": "CLI Tool",
+            "pages": [
+              "cli/overview",
+              "cli/type-generation",
+              "cli/swagger-integration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Modules",
+            "pages": [
+              "api/core/api-client",
+              "api/core/query-client",
+              "api/core/logger",
+              "api/core/profiler",
+              "api/core/retry-policy",
+              "api/core/response-validator",
+              "api/core/request-cache",
+              "api/core/rate-limiter",
+              "api/core/request-deduplicator",
+              "api/core/error-boundary",
+              "api/core/batch-request"
+            ]
+          },
+          {
+            "group": "String & Date Utilities",
+            "pages": [
+              "api/helpers/string-utils",
+              "api/helpers/date-utils",
+              "api/helpers/time-utils"
+            ]
+          },
+          {
+            "group": "Data Structures",
+            "pages": [
+              "api/helpers/array-utils",
+              "api/helpers/object-utils",
+              "api/helpers/number-utils"
+            ]
+          },
+          {
+            "group": "Web & Network",
+            "pages": [
+              "api/helpers/http-status",
+              "api/helpers/url-builder",
+              "api/helpers/file-upload",
+              "api/helpers/streaming",
+              "api/helpers/websocket",
+              "api/helpers/form-utils"
+            ]
+          },
+          {
+            "group": "Storage & Cache",
+            "pages": [
+              "api/helpers/storage-utils",
+              "api/helpers/cache-manager"
+            ]
+          },
+          {
+            "group": "Security & Validation",
+            "pages": [
+              "api/helpers/validator",
+              "api/helpers/crypto-utils",
+              "api/helpers/compression-utils"
+            ]
+          },
+          {
+            "group": "Advanced Utilities",
+            "pages": [
+              "api/helpers/event-emitter",
+              "api/helpers/diff-utils",
+              "api/helpers/polling-helper",
+              "api/helpers/pagination-helper",
+              "api/helpers/env-manager",
+              "api/helpers/color-utils",
+              "api/helpers/signal"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Examples",
+        "groups": [
+          {
+            "group": "Framework Examples",
+            "pages": [
+              "examples/react",
+              "examples/vue",
+              "examples/svelte",
+              "examples/next-js"
+            ]
+          },
+          {
+            "group": "Use Cases",
+            "pages": [
+              "examples/rest-api-integration",
+              "examples/authentication",
+              "examples/error-handling",
+              "examples/caching-strategies",
+              "examples/real-time-data"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Isomorphic ApiClient with retry, circuit breaker, and localized errors",
+    "QueryClient for powerful state management",
+    "Structured logging and performance profiling",
+    "28 utility modules for strings, dates, arrays, objects, crypto, cache, and more",
+    "CLI tool for TypeScript type generation from APIs and Swagger specs",
+    "Zero dependencies, tree-shakeable, works in Node.js and browsers"
+  ],
+  "publicApiSurface": [
+    "ApiClient",
+    "QueryClient",
+    "createLogger",
+    "Profiler",
+    "withTiming",
+    "RetryPolicy",
+    "ResponseValidator",
+    "RequestCache",
+    "RateLimiter",
+    "RequestDeduplicator",
+    "ErrorBoundary",
+    "BatchRequest",
+    "StringUtils",
+    "DateUtils",
+    "TimeUtils",
+    "ArrayUtils",
+    "ObjectUtils",
+    "NumberUtils",
+    "Validator",
+    "CryptoUtils",
+    "CacheManager",
+    "CompressionUtils",
+    "EnvManager",
+    "StorageUtils",
+    "EventEmitter",
+    "DiffUtils",
+    "PollingHelper",
+    "PaginationHelper",
+    "FileUploadHelper",
+    "StreamingHelper",
+    "WebSocketHelper",
+    "HttpStatusHelper",
+    "UrlBuilder",
+    "ColorUtils",
+    "FormUtils",
+    "Signal",
+    "useSignal"
+  ]
+}
